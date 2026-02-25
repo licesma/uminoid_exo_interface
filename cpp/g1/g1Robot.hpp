@@ -1,0 +1,61 @@
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <string>
+
+#include "../gamepad.hpp"
+#include "../utils/DataBuffer.hpp"
+#include "model/g1Enums.hpp"
+#include "model/g1Structs.hpp"
+
+// DDS
+#include <unitree/robot/channel/channel_publisher.hpp>
+#include <unitree/robot/channel/channel_subscriber.hpp>
+// IDL
+#include <unitree/idl/hg/IMUState_.hpp>
+#include <unitree/idl/hg/LowCmd_.hpp>
+#include <unitree/idl/hg/LowState_.hpp>
+#include <unitree/robot/b2/motion_switcher/motion_switcher_client.hpp>
+
+using namespace unitree::common;
+using namespace unitree::robot;
+using namespace unitree_hg::msg::dds_;
+
+class G1Robot {
+ protected:
+  Mode mode_pr_;
+  uint8_t mode_machine_;
+
+  DataBuffer<MotorState> motor_state_buffer_;
+  DataBuffer<MotorCommand> motor_command_buffer_;
+  DataBuffer<ImuState> imu_state_buffer_;
+
+  // Derived class must call this at the end of its constructor
+  void StartControlThread();
+
+ private:
+  int counter_;
+  Gamepad gamepad_;
+  REMOTE_DATA_RX rx_;
+
+  ChannelPublisherPtr<LowCmd_> lowcmd_publisher_;
+  ChannelSubscriberPtr<LowState_> lowstate_subscriber_;
+  ChannelSubscriberPtr<IMUState_> imutorso_subscriber_;
+  ThreadPtr command_writer_ptr_;
+  ThreadPtr control_thread_ptr_;
+
+  std::shared_ptr<unitree::robot::b2::MotionSwitcherClient> msc_;
+
+  void ControlDispatch();  // calls virtual Control() — used by control thread
+
+ public:
+  explicit G1Robot(std::string networkInterface);
+  virtual ~G1Robot() = default;
+
+  void imuTorsoHandler(const void *message);
+  void LowStateHandler(const void *message);
+  void LowCommandWriter();
+
+  virtual void Control() = 0;
+};

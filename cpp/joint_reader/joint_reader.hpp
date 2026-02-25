@@ -1,6 +1,6 @@
 #pragma once
 
-#include "serial_value_reader.hpp"
+#include "serial_value_reader.hpp"  // same directory
 #include <string>
 
 const double RADIAN_VAL = 0.001534;

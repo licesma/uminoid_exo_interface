@@ -34,7 +34,7 @@ from joints import joint_name
 HZ = 500
 DT = 1.0 / HZ
 N = 14
-RATE = 2000        # units per second while a key is held
+RATE = 1000        # units per second while a key is held
 STEP = RATE * DT   # applied every tick per held key
 DISPLAY_EVERY = 25 # refresh display every N ticks (~20 Hz)
 INITIAL_TIME_US = 2003006800000
@@ -142,14 +142,14 @@ def main():
     print(f"Controls (hold, up/down): 1/q  2/w  3/e  4/r  5/t  6/y  7/u  |  a/z  s/x  d/c  f/v  g/b  h/n  j/m  |  Ctrl+C to quit")
     print()
     print(fmt_header(range(7)))
-    print(fmt_values([0.0] * 7))
+    print(fmt_values([2048.0] * 7))
     print(fmt_header(range(7, 14)))
     # Cursor rests at end of this line; refreshes use ANSI codes to rewrite
     # the two value rows (rows 2 and 4 relative to the header pair) in place.
-    print(fmt_values([0.0] * 7), end="", flush=True)
+    print(fmt_values([2048.0] * 7), end="", flush=True)
 
     # Use floats internally so fractional STEP accumulates correctly.
-    vals = [0.0] * N
+    vals = [2048.0] * N
 
     # last_seen[key] = perf_counter timestamp of most recent key event.
     last_seen: dict[str, float] = {}

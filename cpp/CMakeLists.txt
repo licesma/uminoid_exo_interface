@@ -36,9 +36,9 @@ add_library(serial_manager OBJECT joint_reader/serial_manager.cpp)
 target_include_directories(serial_manager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
 target_link_libraries(serial_manager PUBLIC serial_reader)
 
-# bounds_loader loads upperBodyReaderBounds.yaml
-add_library(bounds_loader OBJECT joint_reader/bounds_loader.cpp)
-target_include_directories(bounds_loader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
+# bounds_loader loads joint bound YAML files
+add_library(bounds_loader OBJECT utils/bounds_loader.cpp)
+target_include_directories(bounds_loader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
 target_link_libraries(bounds_loader PUBLIC yaml-cpp)
 
 
@@ -50,4 +50,7 @@ add_executable(teleoperate teleoperate.cpp g1/g1Robot.cpp g1/g1Controller.cpp)
 target_include_directories(teleoperate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(teleoperate PRIVATE unitree_sdk2 serial_reader serial_manager bounds_loader yaml-cpp)
 
-target_compile_definitions(teleoperate PRIVATE CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml")
+target_compile_definitions(teleoperate PRIVATE
+  CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml"
+  G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
+)

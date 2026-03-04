@@ -8,7 +8,6 @@
 #include <string>
 
 #include "gamepad.hpp"
-#include "joint_reader.hpp"
 
 // DDS
 #include <unitree/robot/channel/channel_publisher.hpp>

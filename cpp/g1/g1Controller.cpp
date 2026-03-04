@@ -14,7 +14,8 @@ G1Controller::G1Controller(std::string networkInterface,
       time_(0.0),
       control_dt_(0.002),
       duration_(30000.0),
-      joint_reader_(serialDevice, 0.0) {
+      joint_reader_(serialDevice),
+      bounds_(LoadBounds(G1_BOUNDS_PATH)) {
   StartControlThread();
 }
 
@@ -24,7 +25,7 @@ void printDebug(ExoReadings exo){
 
   auto p = [&](int index) -> std::string {
     
-    double val = exo[index].second;
+    double val = exo[index].netAngle;
     char buf[8];
     char sign = val < 0 ? '-' : '+';
     std::snprintf(buf, sizeof(buf), "%c%.2f", sign, std::abs(val));
@@ -39,6 +40,13 @@ void printDebug(ExoReadings exo){
   out += " R_sh_pit | R_sh_rol | R_sh_yaw |  R_elbow | R_wr_rol | R_wr_pit | R_wr_yaw\n";
   out += p(7) + p(8) + p(9) + p(10) + p(11) + p(12) + p(13) + "\n";
   std::cout << out << std::flush;
+}
+
+double G1Controller::toG1Angle(JointReading reading){
+  auto [joint, netAngle] = reading;
+  auto [low, high] = bounds_[joint];
+
+  return std::clamp(low + netAngle, low, high);
 }
 
 void G1Controller::Control() {
@@ -64,9 +72,8 @@ void G1Controller::Control() {
       */
       const ExoReadings exo = joint_reader_.Eval();
       
-      for (const auto& [joint, netAngle] : exo) {
-        std::cout<<std::to_string(exo[LeftShoulderPitch].second)<<std::endl;
-        motor_command_tmp.q_target.at(joint) = angle;
+      for (const auto& reading : exo) {
+        motor_command_tmp.q_target.at(reading.joint) = toG1Angle(reading);
       }
 
       motor_command_buffer_.SetData(motor_command_tmp);

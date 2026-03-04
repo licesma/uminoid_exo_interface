@@ -1,5 +1,11 @@
 """
-Fake serial device that streams: t_us,a0..a13\n
+Fake serial device that streams binary frames over a PTY.
+
+Frame layout (little-endian, 40 bytes total):
+  uint16  header        0xAA55 sync word
+  uint64  timestamp_us  microseconds since an arbitrary epoch
+  uint16  values[14]    encoder readings (0–4095)
+  uint16  crc           CRC-16/CCITT over header..values
 
 Keyboard control (hold to change continuously):
   up / down
@@ -21,7 +27,9 @@ Keyboard control (hold to change continuously):
 Values wrap in [0, 4095].
 """
 
-import os, pty, time, sys, termios, tty, select, fcntl, errno
+import os, pty, time, sys, termios, tty, select, fcntl, errno, struct
+
+from joints import joint_name
 
 HZ = 500
 DT = 1.0 / HZ
@@ -29,6 +37,12 @@ N = 14
 RATE = 2000        # units per second while a key is held
 STEP = RATE * DT   # applied every tick per held key
 DISPLAY_EVERY = 25 # refresh display every N ticks (~20 Hz)
+INITIAL_TIME_US = 2003006800000
+
+FRAME_HEADER = 0xAA55
+FRAME_FMT = "<HQ14H"                        # header(u16) + ts(u64) + 14×value(u16)
+FRAME_PAYLOAD_SIZE = struct.calcsize(FRAME_FMT)  # 38 bytes
+FRAME_SIZE = FRAME_PAYLOAD_SIZE + 2              # +2 for CRC-16
 
 # How long (seconds) after the last key event before we consider it released.
 # Must be longer than the OS key-repeat interval (~30 ms) but short enough
@@ -37,10 +51,25 @@ HOLD_TIMEOUT = 0.15
 
 COL_W = 8  # characters per encoder column
 
-JOINT_NAMES = [
-    "L_sh_pit", "L_sh_rol", "L_sh_yaw", "L_elbow", "L_wr_rol", "L_wr_pit", "L_wr_yaw",
-    "R_sh_pit", "R_sh_rol", "R_sh_yaw", "R_elbow", "R_wr_rol", "R_wr_pit", "R_wr_yaw",
-]
+_SHORT_NAMES = {
+    "left_shoulder_pitch":  "L_sh_pit",
+    "left_shoulder_roll":   "L_sh_rol",
+    "left_shoulder_yaw":    "L_sh_yaw",
+    "left_elbow":           "L_elbow",
+    "left_wrist_roll":      "L_wr_rol",
+    "left_wrist_pitch":     "L_wr_pit",
+    "left_wrist_yaw":       "L_wr_yaw",
+    "right_shoulder_pitch": "R_sh_pit",
+    "right_shoulder_roll":  "R_sh_rol",
+    "right_shoulder_yaw":   "R_sh_yaw",
+    "right_elbow":          "R_elbow",
+    "right_wrist_roll":     "R_wr_rol",
+    "right_wrist_pitch":    "R_wr_pit",
+    "right_wrist_yaw":      "R_wr_yaw",
+}
+
+def short_name(full_name: str) -> str:
+    return _SHORT_NAMES[full_name]
 
 KEYMAP = {
     # enc 0-6: numbers row (up) / qwerty row (down)
@@ -65,8 +94,25 @@ def wrap(x, lo=0.0, hi=4095.0):
     r = hi - lo + 1
     return ((x - lo) % r) + lo
 
+
+def crc16_ccitt(data: bytes, init: int = 0xFFFF) -> int:
+    crc = init
+    for byte in data:
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) if (crc & 0x8000) else (crc << 1)
+            crc &= 0xFFFF
+    return crc
+
+
+def pack_frame(t_us: int, vals: list[float]) -> bytes:
+    payload = struct.pack(FRAME_FMT, FRAME_HEADER, t_us, *(int(v) for v in vals))
+    crc = crc16_ccitt(payload[2:])  # CRC covers timestamp + values, not header
+    return payload + struct.pack("<H", crc)
+
+
 def fmt_header(indices):
-    return " | ".join(f"{JOINT_NAMES[i]:>{COL_W}}" for i in indices)
+    return " | ".join(f"{short_name(joint_name(i)):>{COL_W}}" for i in indices)
 
 def fmt_values(vals):
     return " | ".join(f"{int(v):04d}".rjust(COL_W) for v in vals)
@@ -137,11 +183,19 @@ def main():
                     vals[idx] = wrap(vals[idx] + direction * STEP)
 
             t = time.perf_counter()
-            t_us = int((t - t0) * 1_000_000)
+            t_us = INITIAL_TIME_US + int((t - t0) * 1_000_000)
 
-            line = f"{t_us}," + ",".join(str(int(v)) for v in vals) + "\n"
+            data = pack_frame(t_us, vals)
             try:
-                os.write(master_fd, line.encode("ascii"))
+                n = os.write(master_fd, data)
+                if n < len(data):
+                    # Partial write: finish the remainder in blocking mode so the
+                    # line stays intact and the reader never sees a split line.
+                    fcntl.fcntl(master_fd, fcntl.F_SETFL, fl)
+                    try:
+                        os.write(master_fd, data[n:])
+                    finally:
+                        fcntl.fcntl(master_fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
             except OSError as e:
                 if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
                     raise

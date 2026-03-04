@@ -10,11 +10,11 @@ static const std::string HG_CMD_TOPIC = "rt/lowcmd";
 static const std::string HG_IMU_TORSO = "rt/secondary_imu";
 static const std::string HG_STATE_TOPIC = "rt/lowstate";
 
-G1Robot::G1Robot(std::string networkInterface)
+G1Robot::G1Robot(std::string networkInterface, bool isSimulation)
     : mode_pr_(Mode::PR),
       mode_machine_(0),
       counter_(0) {
-  ChannelFactory::Instance()->Init(0, networkInterface);
+  ChannelFactory::Instance()->Init(isSimulation ? 1 : 0, networkInterface);
 
   msc_ = std::make_shared<unitree::robot::b2::MotionSwitcherClient>();
   msc_->SetTimeout(5.0f);

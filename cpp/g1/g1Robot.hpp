@@ -50,7 +50,7 @@ class G1Robot {
   void ControlDispatch();  // calls virtual Control() — used by control thread
 
  public:
-  explicit G1Robot(std::string networkInterface);
+  G1Robot(std::string networkInterface, bool isSimulation);
   virtual ~G1Robot() = default;
 
   void imuTorsoHandler(const void *message);

@@ -5,127 +5,184 @@ import tty
 import termios
 import select
 
+import serial
 import yaml
-import numpy as np
 from InquirerPy import inquirer
 
-from vr import VuerTeleop
+from joints import ARM_JOINTS, JOINT_NAMES
+from utils.convert_to_radian import convert_to_radian
+from constants import ENCODER_PRECISION_RAD
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "third_party", "inspire_hands"))
-from inspire_hand import InspireHand
-from inspire_hand.hand import FingerID, Register
+SERIAL_PORT  = "/dev/pts/7"
+BAUD_RATE    = 115200
 
-CONFIG_FILE = "./assets/inspire_hand/inspire_hand.yml"
-BOUNDS_FILE = "hand_bounds.yaml"
-HISTORY_LEN = 6
+ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
+JOINT_BOUNDS_FILE = "./cpp/joint_reader/upperBodyReaderBounds.yaml"
 
 
-def load_bounds():
-    with open(BOUNDS_FILE) as f:
+def load_yaml(path):
+    with open(path) as f:
         return yaml.safe_load(f)
 
 
-def save_bounds(bounds):
-    with open(BOUNDS_FILE, "w") as f:
-        yaml.dump(bounds, f, default_flow_style=False)
+def save_yaml(path, data):
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False)
 
 
-def get_finger_value(left_hand, right_hand, hand_side, finger_name):
-    hand = left_hand if hand_side == "left" else right_hand
-    if hand is None:
-        return 0.0
-    return getattr(hand, finger_name).wrist_to_tip
+def joint_display_name(name):
+    return " ".join(word.capitalize() for word in name.split("_"))
+
+
+def joint_status_badge(side, joint, robot_bounds, joint_bounds):
+    full_name = f"{side}_{joint}"
+    robot_lower = robot_bounds[full_name]["lower"]
+    robot_upper = robot_bounds[full_name]["upper"]
+    jl = joint_bounds[full_name]["lower"]
+    ju = joint_bounds[full_name]["upper"]
+    delta = abs((robot_upper - robot_lower) - (ju - jl))
+    if delta < 2 * ENCODER_PRECISION_RAD:
+        return "[correct]"
+    elif delta < 4 * ENCODER_PRECISION_RAD:
+        return "[close]"
+    else:
+        return "[incorrect]"
 
 
 def read_key_nonblocking():
-    """Return the next keypress if one is waiting, else None."""
     if select.select([sys.stdin], [], [], 0)[0]:
         return sys.stdin.read(1)
     return None
 
 
-def calibrate_loop(teleop, hand_side, finger_name):
-    """
-    Live calibration loop.  Returns True when the user goes back ('b').
-    In raw-terminal mode so single keypresses are caught without Enter.
-    """
-    history = []
+def read_serial_value(ser, joint_index):
+    """Flush stale buffered data, then return the freshest encoder value for joint_index."""
+    try:
+        ser.reset_input_buffer()
+        line = ser.readline().decode("ascii").strip()
+        parts = line.split(",")
+        if len(parts) == 15:           # t_us + 14 encoder values
+            return float(parts[joint_index + 1])
+    except Exception:
+        pass
+    return None
+
+
+def calibrate_loop(ser, side, joint):
+    full_name   = f"{side}_{joint}"
+    joint_index = JOINT_NAMES.index(full_name)
+
+    robot_bounds = load_yaml(ROBOT_BOUNDS_FILE)
+    robot_lower  = robot_bounds[full_name]["lower"]
+    robot_upper  = robot_bounds[full_name]["upper"]
+
+    joint_bounds = load_yaml(JOINT_BOUNDS_FILE)
+
+    current_value = None
 
     while True:
-        head, left_wrist, right_wrist, left_hand, right_hand = teleop.step()
-        value = get_finger_value(left_hand, right_hand, hand_side, finger_name)
-
-        history.append(value)
-        if len(history) > HISTORY_LEN:
-            history.pop(0)
-
-        bounds = load_bounds()
-        low  = bounds[hand_side][finger_name]["low"]
-        high = bounds[hand_side][finger_name]["high"]
+        v = read_serial_value(ser, joint_index)
+        if v is not None:
+            current_value = v
 
         key = read_key_nonblocking()
-        if key == 'b':
+        if key == "b":
             return
-        elif key == 'l':
-            bounds[hand_side][finger_name]["low"] = float(value)
-            save_bounds(bounds)
-            low = float(value)
-        elif key == 'u':
-            bounds[hand_side][finger_name]["high"] = float(value)
-            save_bounds(bounds)
-            high = float(value)
+        elif key == "l" and current_value is not None:
+            joint_bounds[full_name]["lower"] = convert_to_radian(current_value)
+            save_yaml(JOINT_BOUNDS_FILE, joint_bounds)
+        elif key == "u" and current_value is not None:
+            joint_bounds[full_name]["upper"] = convert_to_radian(current_value)
+            save_yaml(JOINT_BOUNDS_FILE, joint_bounds)
 
-        # Refresh display
+        jl = joint_bounds[full_name]["lower"]
+        ju = joint_bounds[full_name]["upper"]
+
+        robot_range = robot_upper - robot_lower
+        joint_range = ju - jl
+        delta_range = abs(robot_range - joint_range)
+
+        if delta_range < 2 * ENCODER_PRECISION_RAD:
+            color = "\033[32m"   # green
+        elif delta_range < 4 * ENCODER_PRECISION_RAD:
+            color = "\033[33m"   # yellow
+        else:
+            color = "\033[31m"   # red
+        reset = "\033[0m"
+        delta_tag = f"{color}[\u0394 Range {delta_range:.4f}]{reset}"
+
         os.system("clear")
-        print(f"Hand: {hand_side}   Finger: {finger_name}\n")
+        print(f"Side: {side.capitalize()},  Joint: {joint_display_name(joint)}  {delta_tag}\n")
+        print(
+            f"{'Robot Limits:':<16}  "
+            f"Lower: {robot_lower:<22.4f}  "
+            f"Upper: {robot_upper:<22.4f}  "
+            f"Range: {robot_range:.4f}"
+        )
+        print(
+            f"{'Joint Limits:':<16}  "
+            f"Lower: {jl:<22.4f}  "
+            f"Upper: {ju:<22.4f}  "
+            f"Range: {joint_range:.4f}"
+        )
+        print()
+        if current_value is not None:
+            cv_rad = convert_to_radian(current_value)
+            cv_str = f"{cv_rad:.4f} rad  (raw: {current_value:.0f})"
+        else:
+            cv_str = "—"
+        print(f"Current value: {cv_str}")
+        print()
         print("'b' -> go back   'l' -> set lower bound   'u' -> set upper bound")
-        print(f"lower bound: {low:.4f},   upper bound: {high:4f}\n")
-
-        for v in history:
-            print(f"{v:.4f}")
 
         time.sleep(0.05)
 
 
 def main():
-    hand = InspireHand(port="/dev/ttyUSB0", baudrate=115200, slave_id=1)
-    hand.open()
-    teleop = VuerTeleop(config_file_path=CONFIG_FILE, img_shm_name=None)
+    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1)
 
     try:
         while True:
             os.system("clear")
-            hand_side = inquirer.select(
-                message="Select hand:",
+            side = inquirer.select(
+                message="Select side:",
                 choices=["left", "right"],
             ).execute()
 
             while True:
                 os.system("clear")
-                print(f"Hand: {hand_side}\n")
+                print(f"Side: {side.capitalize()}\n")
 
-                finger_name = inquirer.select(
-                    message="Select finger:",
-                    choices=["index", "middle", "ring", "pinky", "← back"],
+                robot_bounds = load_yaml(ROBOT_BOUNDS_FILE)
+                joint_bounds = load_yaml(JOINT_BOUNDS_FILE)
+                joint_choices = [
+                    {
+                        "name": f"{j}  {joint_status_badge(side, j, robot_bounds, joint_bounds)}",
+                        "value": j,
+                    }
+                    for j in ARM_JOINTS
+                ] + [{"name": "← back", "value": "← back"}]
+
+                joint = inquirer.select(
+                    message="Select joint:",
+                    choices=joint_choices,
                 ).execute()
 
-                if finger_name == "← back":
+                if joint == "← back":
                     break
 
-                # Switch stdin to raw mode only during the calibration loop
                 fd = sys.stdin.fileno()
                 old_settings = termios.tcgetattr(fd)
                 try:
                     tty.setcbreak(fd)
-                    calibrate_loop(teleop, hand_side, finger_name)
+                    calibrate_loop(ser, side, joint)
                 finally:
                     termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
-        hand.close()
-        teleop.shutdown()
+        ser.close()
 
 
 if __name__ == "__main__":

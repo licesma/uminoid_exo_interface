@@ -1,62 +1,42 @@
-#########################################################
-#################     Left Arm   ########################
-#########################################################
 left_shoulder_pitch:
-  lower: -3.0892
-  upper: 2.6704
-
+  lower: -2.9820586516496865
+  upper: 2.8347964960126646
 left_shoulder_roll:
   lower: -1.5882
   upper: 2.2515
-
 left_shoulder_yaw:
   lower: -2.618
   upper: 2.618
-
 left_elbow:
   lower: -1.0472
   upper: 2.0944
-
-left_wrist_roll:
-  lower: -1.972222054
-  upper: 1.972222054
-
 left_wrist_pitch:
   lower: -1.614429558
   upper: 1.614429558
-
+left_wrist_roll:
+  lower: -1.972222054
+  upper: 1.972222054
 left_wrist_yaw:
   lower: -1.614429558
   upper: 1.614429558
-  
-
-#########################################################
-################     Right Arm   ########################
-#########################################################
 right_shoulder_pitch:
   lower: -3.0892
   upper: 2.6704
-
 right_shoulder_roll:
   lower: -2.2515
   upper: 1.5882
-
 right_shoulder_yaw:
   lower: -2.618
   upper: 2.618
-
 right_elbow:
   lower: -1.0472
   upper: 2.0944
-
-right_wrist_roll:
-  lower: -1.972222054
-  upper: 1.972222054
-
 right_wrist_pitch:
   lower: -1.614429558
   upper: 1.614429558
-
+right_wrist_roll:
+  lower: -1.972222054
+  upper: 1.972222054
 right_wrist_yaw:
   lower: -1.614429558
   upper: 1.614429558

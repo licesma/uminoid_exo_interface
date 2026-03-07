@@ -13,7 +13,7 @@
  */
 class SerialManager {
  public:
-  explicit SerialManager(const std::string& device_path);
+  explicit SerialManager(const std::string& relay_address);
   ~SerialManager();
   SerialManager(const SerialManager&) = delete;
   SerialManager& operator=(const SerialManager&) = delete;
@@ -23,6 +23,9 @@ class SerialManager {
     std::lock_guard<std::mutex> lock(values_mutex_);
     return latest_;
   }
+
+  /** Print raw encoder values (0–4096) to stdout. */
+  void PrintRaw() const;
 
  private:
   void ReaderLoop();

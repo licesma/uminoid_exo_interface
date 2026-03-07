@@ -142,7 +142,7 @@ class G1Example {
   double GetElbowTargetRad() const { return right_elbow_target_rad_.load(); }
 
   G1Example(std::string networkInterface,
-            std::string serial_device = "/dev/ttyACM0")
+            std::string relay_address = "127.0.0.1:5000")
       : time_(0.0),
         control_dt_(0.002),
         duration_(3.0),
@@ -151,7 +151,7 @@ class G1Example {
         counter_(0),
         mode_pr_(Mode::PR),
         mode_machine_(0),
-        joint_reader_(serial_device, 0.0) {
+        joint_reader_(relay_address, 0.0) {
     ChannelFactory::Instance()->Init(1, networkInterface);
 
     msc_ = std::make_shared<unitree::robot::b2::MotionSwitcherClient>();

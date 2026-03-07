@@ -1,6 +1,6 @@
 import math
 
-from constants import ENCODER_RESOLUTION
+from joint_reader_constants import ENCODER_RESOLUTION
 
 
 def convert_to_radian(encoder_value: float) -> float:

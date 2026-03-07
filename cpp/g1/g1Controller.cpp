@@ -1,7 +1,9 @@
 #include "g1Controller.hpp"
 #include "g1/model/g1Enums.hpp"
 #include "joint_reader.hpp"
+#include "metadata_loader.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -15,7 +17,8 @@ G1Controller::G1Controller(std::string networkInterface,
       control_dt_(0.002),
       duration_(30000.0),
       joint_reader_(serialDevice),
-      bounds_(LoadBounds(G1_BOUNDS_PATH)) {
+      bounds_(LoadBounds(G1_BOUNDS_PATH)),
+      joints_metadata_(LoadMetadata(READER_BOUNDS_PATH)) {
   StartControlThread();
 }
 
@@ -45,8 +48,22 @@ void printDebug(ExoReadings exo){
 double G1Controller::toG1Angle(JointReading reading){
   auto [joint, netAngle] = reading;
   auto [low, high] = bounds_[joint];
+  ReadingMetadata metadata = joints_metadata_[joint];
 
-  return std::clamp(low + netAngle, low, high);
+  double value = metadata.alignedWithRobot ? low + netAngle : high - netAngle;
+  return std::clamp(value, low, high);
+}
+
+static bool isInLeftArm(G1JointIndex joint){
+  bool res = false;
+  res |= joint == G1JointIndex::LeftShoulderPitch;
+  res |= joint == G1JointIndex::LeftShoulderRoll;
+  res |= joint == G1JointIndex::LeftShoulderYaw;
+  res |= joint == G1JointIndex::LeftElbow;
+  res |= joint == G1JointIndex::LeftWristPitch;
+  res |= joint == G1JointIndex::LeftWristRoll;
+  res |= joint == G1JointIndex::LeftWristYaw;
+  return res;
 }
 
 void G1Controller::Control() {
@@ -73,6 +90,7 @@ void G1Controller::Control() {
       const ExoReadings exo = joint_reader_.Eval();
       
       for (const auto& reading : exo) {
+        if( isInLeftArm(reading.joint) )
         motor_command_tmp.q_target.at(reading.joint) = toG1Angle(reading);
       }
 

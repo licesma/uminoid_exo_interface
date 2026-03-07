@@ -6,19 +6,19 @@
 #include <optional>
 #include <string>
 
-#include <serial/serial.h>
-
-
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 /**
- * Low-level serial port reader backed by wjwwood/serial.
- * Opens the device at 230400 8N1 and reads binary frames:
+ * Low-level relay reader backed by TCP socket.
+ * Connects to relay.py at host:port and reads binary frames:
  *   [0xAA55 sync (u16)] [timestamp_us (u64)] [14×value (u16)] [CRC-16 (u16)]
- * GetNextLine() syncs, validates CRC, and returns the data as a CSV string
- * ("timestamp,v0,v1,...,v13") so the caller can parse it the same way.
+ * GetNextLine() syncs, validates CRC, and returns the data as SerialLine.
  */
-
- struct SerialLine {
+struct SerialLine {
   u_int64_t timestamp;
   std::array<u_int16_t, JOINT_COUNT> data;
 };
@@ -26,21 +26,20 @@
 
 class SerialReader {
  public:
- 
-
-  explicit SerialReader(const std::string& device_path);
+  /** Connect to relay at address "host:port" (e.g. "127.0.0.1:5000"). */
+  explicit SerialReader(const std::string& relay_address);
   ~SerialReader();
 
   SerialReader(const SerialReader&) = delete;
   SerialReader& operator=(const SerialReader&) = delete;
 
-  bool IsOk() const { return port_.isOpen(); }
+  bool IsOk() const { return socket_fd_ >= 0; }
 
   void Stop();
 
   std::optional<SerialLine> GetNextLine();
 
  private:
-  serial::Serial port_;
+  int socket_fd_{-1};
   std::atomic<bool> running_{true};
 };

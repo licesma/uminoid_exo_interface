@@ -27,10 +27,9 @@ add_library(wjwwood_serial
 target_include_directories(wjwwood_serial PUBLIC ${WJWWOOD_SERIAL_DIR}/include)
 target_link_libraries(wjwwood_serial PUBLIC rt pthread)
 
-# serial_reader handles low-level I/O; serial_manager owns the thread and value cache
+# serial_reader connects to relay via TCP; serial_manager owns the thread and value cache
 add_library(serial_reader OBJECT joint_reader/serial_reader.cpp)
 target_include_directories(serial_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
-target_link_libraries(serial_reader PUBLIC wjwwood_serial)
 
 add_library(serial_manager OBJECT joint_reader/serial_manager.cpp)
 target_include_directories(serial_manager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
@@ -41,16 +40,22 @@ add_library(bounds_loader OBJECT utils/bounds_loader.cpp)
 target_include_directories(bounds_loader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
 target_link_libraries(bounds_loader PUBLIC yaml-cpp)
 
+# metadata_loader loads per-joint metadata from YAML files
+add_library(metadata_loader OBJECT utils/metadata_loader.cpp)
+target_include_directories(metadata_loader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+target_link_libraries(metadata_loader PUBLIC yaml-cpp)
+
 
 add_executable(swing_elbow swing_elbow.cpp)
 target_include_directories(swing_elbow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(swing_elbow PRIVATE unitree_sdk2 serial_reader serial_manager bounds_loader)
+target_link_libraries(swing_elbow PRIVATE unitree_sdk2 serial_reader serial_manager bounds_loader metadata_loader)
 
 add_executable(teleoperate teleoperate.cpp g1/g1Robot.cpp g1/g1Controller.cpp)
 target_include_directories(teleoperate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(teleoperate PRIVATE unitree_sdk2 serial_reader serial_manager bounds_loader yaml-cpp)
+target_link_libraries(teleoperate PRIVATE unitree_sdk2 serial_reader serial_manager bounds_loader metadata_loader yaml-cpp)
 
 target_compile_definitions(teleoperate PRIVATE
   CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml"
   G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/joint_reader/upperBodyReaderBounds.yaml"
 )

@@ -1,20 +1,18 @@
+import math
 import sys
-import os
 import time
 import tty
 import termios
 import select
 
-import serial
 import yaml
 from InquirerPy import inquirer
 
+import joint_reader
 from joints import ARM_JOINTS, JOINT_NAMES
 from utils.convert_to_radian import convert_to_radian
-from constants import ENCODER_PRECISION_RAD
+from joint_reader_constants import ENCODER_PRECISION_RAD
 
-SERIAL_PORT  = "/dev/pts/7"
-BAUD_RATE    = 115200
 
 ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
 JOINT_BOUNDS_FILE = "./cpp/joint_reader/upperBodyReaderBounds.yaml"
@@ -55,20 +53,20 @@ def read_key_nonblocking():
     return None
 
 
-def read_serial_value(ser, joint_index):
-    """Flush stale buffered data, then return the freshest encoder value for joint_index."""
+def read_serial_value(csv_buffer, sock, joint_index):
+    """Return the freshest encoder value for joint_index from relay via joint_reader."""
     try:
-        ser.reset_input_buffer()
-        line = ser.readline().decode("ascii").strip()
-        parts = line.split(",")
-        if len(parts) == 15:           # t_us + 14 encoder values
-            return float(parts[joint_index + 1])
+        csv_line, csv_buffer = joint_reader.read_freshest_csv_line(sock, csv_buffer)
+        if csv_line is not None:
+            parts = csv_line.split(",")
+            if len(parts) == 15:           # t_us + 14 encoder values
+                return float(parts[joint_index + 1]), csv_buffer
     except Exception:
         pass
-    return None
+    return None, csv_buffer
 
 
-def calibrate_loop(ser, side, joint):
+def calibrate_loop(sock, side, joint):
     full_name   = f"{side}_{joint}"
     joint_index = JOINT_NAMES.index(full_name)
 
@@ -78,10 +76,12 @@ def calibrate_loop(ser, side, joint):
 
     joint_bounds = load_yaml(JOINT_BOUNDS_FILE)
 
+    joint_reader.drain_socket(sock)
     current_value = None
+    csv_buffer = bytearray()
 
     while True:
-        v = read_serial_value(ser, joint_index)
+        v, csv_buffer = read_serial_value(csv_buffer, sock, joint_index)
         if v is not None:
             current_value = v
 
@@ -99,7 +99,7 @@ def calibrate_loop(ser, side, joint):
         ju = joint_bounds[full_name]["upper"]
 
         robot_range = robot_upper - robot_lower
-        joint_range = ju - jl
+        joint_range = ju - jl if jl < ju else 2*math.pi + ju - jl
         delta_range = abs(robot_range - joint_range)
 
         if delta_range < 2 * ENCODER_PRECISION_RAD:
@@ -111,47 +111,42 @@ def calibrate_loop(ser, side, joint):
         reset = "\033[0m"
         delta_tag = f"{color}[\u0394 Range {delta_range:.4f}]{reset}"
 
-        os.system("clear")
-        print(f"Side: {side.capitalize()},  Joint: {joint_display_name(joint)}  {delta_tag}\n")
-        print(
-            f"{'Robot Limits:':<16}  "
-            f"Lower: {robot_lower:<22.4f}  "
-            f"Upper: {robot_upper:<22.4f}  "
-            f"Range: {robot_range:.4f}"
-        )
-        print(
-            f"{'Joint Limits:':<16}  "
-            f"Lower: {jl:<22.4f}  "
-            f"Upper: {ju:<22.4f}  "
-            f"Range: {joint_range:.4f}"
-        )
-        print()
+        output = [
+            f"Side: {side.capitalize()},  Joint: {joint_display_name(joint)}  {delta_tag}\n",
+            f"{'Robot Limits:':<16}  Lower: {robot_lower:<22.4f}  Upper: {robot_upper:<22.4f}  Range: {robot_range:.4f}",
+            f"{'Joint Limits:':<16}  Lower: {jl:<22.4f}  Upper: {ju:<22.4f}  Range: {joint_range:.4f}\n",
+        ]
+
         if current_value is not None:
             cv_rad = convert_to_radian(current_value)
             cv_str = f"{cv_rad:.4f} rad  (raw: {current_value:.0f})"
         else:
             cv_str = "—"
-        print(f"Current value: {cv_str}")
-        print()
-        print("'b' -> go back   'l' -> set lower bound   'u' -> set upper bound")
+
+        output.append(f"Current value: {cv_str}\n")
+        output.append("'b' -> go back   'l' -> set lower bound   'u' -> set upper bound")
+
+        sys.stdout.write(f"\033[H{chr(10).join(output)}\033[J")
+        sys.stdout.flush()
 
         time.sleep(0.05)
 
 
 def main():
-    ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=0.1)
+    sock = joint_reader.connect_to_relay()
 
     try:
         while True:
-            os.system("clear")
+            sys.stdout.write("\033[H\033[J")
+            sys.stdout.flush()
             side = inquirer.select(
                 message="Select side:",
                 choices=["left", "right"],
             ).execute()
 
             while True:
-                os.system("clear")
-                print(f"Side: {side.capitalize()}\n")
+                sys.stdout.write(f"\033[H\033[JSide: {side.capitalize()}\n\n")
+                sys.stdout.flush()
 
                 robot_bounds = load_yaml(ROBOT_BOUNDS_FILE)
                 joint_bounds = load_yaml(JOINT_BOUNDS_FILE)
@@ -175,14 +170,14 @@ def main():
                 old_settings = termios.tcgetattr(fd)
                 try:
                     tty.setcbreak(fd)
-                    calibrate_loop(ser, side, joint)
+                    calibrate_loop(sock, side, joint)
                 finally:
                     termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
-        ser.close()
+        sock.close()
 
 
 if __name__ == "__main__":

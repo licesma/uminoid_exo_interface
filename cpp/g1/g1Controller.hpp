@@ -4,6 +4,7 @@
 
 #include "../joint_reader/joint_reader.hpp"
 #include "../utils/bounds_loader.hpp"
+#include "../utils/metadata_loader.hpp"
 #include "g1Robot.hpp"
 
 class G1Controller : public G1Robot {
@@ -14,6 +15,7 @@ class G1Controller : public G1Robot {
 
   JointReader joint_reader_;
   JointBounds bounds_;
+  JointsReadingMetadata joints_metadata_;
   double toG1Angle(JointReading reading);
 
  public:

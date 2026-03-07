@@ -1,2 +1,2 @@
-serial_device: /dev/pts/1
+relay: "127.0.0.1:5000"
 is_simulation: true

@@ -14,11 +14,11 @@ int main(int argc, char const *argv[]) {
   }
 
   YAML::Node config = YAML::LoadFile(CONFIG_PATH);
-  std::string serialDevice = config["serial_device"].as<std::string>();
+  std::string relay = config["relay"].as<std::string>();
   bool isSimulation = config["is_simulation"].as<bool>();
 
   std::string networkInterface = argv[1];
-  G1Controller custom(networkInterface, serialDevice, isSimulation);
+  G1Controller custom(networkInterface, relay, isSimulation);
 
   while (true) {
     std::this_thread::sleep_for(std::chrono::seconds(1));

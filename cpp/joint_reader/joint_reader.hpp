@@ -15,6 +15,7 @@
 struct JointReading {
   G1JointIndex joint;
   double netAngle;
+  bool is_valid;
 };
 
 using ExoReadings = std::array<JointReading, 14>;
@@ -24,6 +25,26 @@ using ExoReadings = std::array<JointReading, 14>;
  * Eval() returns a stack-allocated snapshot of all 14 arm joints, ready to
  * iterate and write directly into a MotorCommand.
  */
+
+
+
+const std::array<ExoIndex, JOINT_COUNT> EXO_JOINT_INDICES = {
+  ExoIndex::LeftShoulderPitch,
+  ExoIndex::LeftShoulderRoll, 
+  ExoIndex::LeftShoulderYaw, 
+  ExoIndex::LeftElbow, 
+  ExoIndex::LeftWristRoll, 
+  ExoIndex::LeftWristPitch, 
+  ExoIndex::LeftWristYaw, 
+  ExoIndex::RightShoulderPitch, 
+  ExoIndex::RightShoulderRoll, 
+  ExoIndex::RightShoulderYaw, 
+  ExoIndex::RightElbow, 
+  ExoIndex::RightWristRoll, 
+  ExoIndex::RightWristPitch, 
+  ExoIndex::RightWristYaw,
+};
+
 class JointReader {
  public:
   explicit JointReader(const std::string& relay_address,
@@ -51,23 +72,26 @@ class JointReader {
     return low < high ? high - low : 2*M_PI + high - low;
   }
 
-  static double quantizeToClosestBound(double val, double low, double high){
-    // Called when val < low && high < val
-    double distanceToLow = circularDistance(low,val);
-    double distanceToHigh = circularDistance(val, high);
-    return distanceToLow < distanceToHigh ? low : high;
+  static JointReading invalidReading(G1JointIndex joint){
+    return {joint, -1, false};
   }
 
   ExoReadings Eval() const {
     const auto snapshot = serial_.Snapshot();
     
-    auto getBoundedAngle = [&bounds = bounds_, &snapshot](ExoIndex j) {
+    auto getReadingValue = [&bounds = bounds_, &snapshot](ExoIndex j) {
       int exoIdx = static_cast<int>(j);
       G1JointIndex g1Idx = getG1JointIndex(j);
       auto [lower, upper] = bounds[g1Idx];
-      double value = (snapshot.data[exoIdx] - ENCODER_RESOLUTION/2.0)*ENCODER_PRECISION_RAD; 
+      int bit_value = snapshot.data[exoIdx];
+
+
+
+      if(bit_value == 5000)      return invalidReading(g1Idx);
+
+      double value = (bit_value - ENCODER_RESOLUTION/2.0)*ENCODER_PRECISION_RAD;
       //print(snapshot);
-      if(j == ExoIndex::LeftWristYaw){
+      if(j == ExoIndex::LeftWristYaw && circularDistance(upper, lower) < circularDistance(value, lower)){
         std::cout<<"Bounds: ["<<lower<<", "<<upper<<"]"<<std::endl;
          
         std::cout<<"Snapshot:"<<snapshot.data[exoIdx]<<std::endl;
@@ -79,31 +103,20 @@ class JointReader {
         std::cout<<"Low to Val"<<circularDistance(lower ,value)<<std::endl;
         std::cout<<"Val to High"<<circularDistance(value, upper);
       }
+
+      if(circularDistance(upper, lower) < circularDistance(value, lower))  return invalidReading(g1Idx);
       
-      if(circularDistance(upper, lower) < circularDistance(value, lower)){
-        return quantizeToClosestBound(value, lower, upper);
-      }
-      else{
-        return circularDistance(value, lower);
-      }
+      return JointReading{g1Idx, circularDistance(value, lower), true};
+      
     };
 
-    return {{
-        {LeftShoulderPitch, getBoundedAngle(ExoIndex::LeftShoulderPitch)},
-        {LeftShoulderRoll, getBoundedAngle(ExoIndex::LeftShoulderRoll)},
-        {LeftShoulderYaw, getBoundedAngle(ExoIndex::LeftShoulderYaw)},
-        {LeftElbow, getBoundedAngle(ExoIndex::LeftElbow)},
-        {LeftWristRoll, getBoundedAngle(ExoIndex::LeftWristRoll)},
-        {LeftWristPitch, getBoundedAngle(ExoIndex::LeftWristPitch)},
-        {LeftWristYaw, getBoundedAngle(ExoIndex::LeftWristYaw)},
-        {RightShoulderPitch, getBoundedAngle(ExoIndex::RightShoulderPitch)},
-        {RightShoulderRoll, getBoundedAngle(ExoIndex::RightShoulderRoll)},
-        {RightShoulderYaw, getBoundedAngle(ExoIndex::RightShoulderYaw)},
-        {RightElbow, getBoundedAngle(ExoIndex::RightElbow)},
-        {RightWristRoll, getBoundedAngle(ExoIndex::RightWristRoll)},
-        {RightWristPitch, getBoundedAngle(ExoIndex::RightWristPitch)},
-        {RightWristYaw, getBoundedAngle(ExoIndex::RightWristYaw)},
-    }};
+    ExoReadings joint_values;
+
+    for(auto joint: EXO_JOINT_INDICES){
+      joint_values[static_cast<int>(joint)] = getReadingValue(joint);
+    }
+
+    return joint_values;
   }
 
  private:

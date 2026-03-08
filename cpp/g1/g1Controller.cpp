@@ -46,7 +46,7 @@ void printDebug(ExoReadings exo){
 }
 
 double G1Controller::toG1Angle(JointReading reading){
-  auto [joint, netAngle] = reading;
+  auto [joint, netAngle, is_valid_] = reading;
   auto [low, high] = bounds_[joint];
   ReadingMetadata metadata = joints_metadata_[joint];
 
@@ -90,8 +90,12 @@ void G1Controller::Control() {
       const ExoReadings exo = joint_reader_.Eval();
       
       for (const auto& reading : exo) {
-        if( isInLeftArm(reading.joint) )
-        motor_command_tmp.q_target.at(reading.joint) = toG1Angle(reading);
+        
+        if( isInLeftArm(reading.joint)){
+          if(reading.is_valid)
+            motor_command_tmp.q_target.at(reading.joint) = toG1Angle(reading);
+        }
+        
       }
 
       motor_command_buffer_.SetData(motor_command_tmp);

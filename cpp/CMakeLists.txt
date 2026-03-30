@@ -42,6 +42,11 @@ find_package(yaml-cpp REQUIRED)
 add_library(joint_reader OBJECT joint_reader/serial_reader.cpp joint_reader/serial_manager.cpp)
 target_include_directories(joint_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
 
+# camera recorder
+add_library(camera_recorder OBJECT camera/camera_recorder.cpp)
+target_include_directories(camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(camera_recorder PUBLIC realsense2)
+
 # g1 robot and controller
 add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
 target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -68,4 +73,4 @@ target_compile_definitions(teleoperate PRIVATE
 
 add_executable(camera camera.cpp)
 target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(camera PRIVATE realsense2)
+target_link_libraries(camera PRIVATE camera_recorder)

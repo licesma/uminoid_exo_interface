@@ -1,0 +1,46 @@
+#pragma once
+
+#include <string>
+#include <vector>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+constexpr int FRAME_WIDTH = 1920;
+constexpr int FRAME_HEIGHT = 1080;
+constexpr int FRAME_BYTES_PER_PIXEL = 3; // RGB8
+constexpr int FRAME_STRIDE = FRAME_WIDTH * FRAME_BYTES_PER_PIXEL;
+constexpr int FRAME_SIZE = FRAME_STRIDE * FRAME_HEIGHT;
+
+struct FrameData {
+    std::string filename;
+    std::vector<uint8_t> pixels;
+};
+
+class CameraRecorder {
+public:
+    CameraRecorder(const std::string& output_dir, int framerate, int save_batch_size = 30);
+    ~CameraRecorder();
+
+    void record();
+
+private:
+    void start_writer();
+    void flush_batch();
+    void stop_writer();
+
+    std::string output_dir_;
+    int framerate;
+    int save_batch_size_;
+
+    // Current batch being filled by main thread
+    std::vector<FrameData> batch_;
+
+    // Queue of batches ready to be written
+    std::queue<std::vector<FrameData>> write_queue_;
+    std::thread writer_;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+    bool stop_writer_ = false;
+};

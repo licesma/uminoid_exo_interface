@@ -1,7 +1,6 @@
 #include "g1Controller.hpp"
-#include "g1/model/g1Enums.hpp"
-#include "joint_reader.hpp"
-#include "metadata_loader.hpp"
+#include "joint_reader/joint_reader.hpp"
+#include "utils/metadata_loader.hpp"
 
 #include <algorithm>
 #include <cmath>

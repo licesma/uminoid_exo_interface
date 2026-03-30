@@ -25,9 +25,33 @@ sudo apt-get install libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev at
 conda create -n uminoid_exo python=3.11 && conda run -n uminoid_exo pip install -r requirements.txt
 ```
 
-### Build C++
-
+## Handle C++
 ```bash
 cd cpp
+```
+
+
+### Configure CMAKE
+(Only necessary when CMakeLists.txt is changed)
+```bash
 cmake -B build && cmake --build build
+```
+
+
+### Build
+**Build all**
+```bash
+cmake --build build
+```
+
+**Build a specific file**
+Build a specific File
+```bash
+cmake --build build --target <target_file>
+```
+
+
+### Execute
+```bash
+./build/<target_file>
 ```

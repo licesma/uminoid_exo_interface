@@ -44,8 +44,12 @@ target_include_directories(joint_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint
 
 # g1 robot and controller
 add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
-target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/g1)
+target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(g1 PUBLIC unitree_sdk2)
+target_compile_definitions(g1 PRIVATE
+  G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/joint_reader/upperBodyReaderBounds.yaml"
+)
 
 
 
@@ -60,8 +64,6 @@ target_link_libraries(teleoperate PRIVATE g1 joint_reader yaml-cpp)
 
 target_compile_definitions(teleoperate PRIVATE
   CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml"
-  G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
-  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/joint_reader/upperBodyReaderBounds.yaml"
 )
 
 add_executable(camera camera.cpp)

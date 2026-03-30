@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 
 #include "../joint_reader/joint_reader.hpp"
@@ -9,9 +10,10 @@
 
 class G1Controller : public G1Robot {
  private:
-  double time_;
   double control_dt_;
-  double duration_;
+  double max_target_velocity_;
+  bool targets_initialized_;
+  std::array<double, G1_NUM_MOTOR> commanded_targets_;
 
   JointReader joint_reader_;
   JointBounds bounds_;

@@ -13,9 +13,10 @@ G1Controller::G1Controller(std::string networkInterface,
                            std::string serialDevice,
                            bool isSimulation)
     : G1Robot(networkInterface, isSimulation),
-      time_(0.0),
       control_dt_(0.002),
-      duration_(30000.0),
+      max_target_velocity_(1.0),
+      targets_initialized_(false),
+      commanded_targets_{},
       joint_reader_(serialDevice),
       bounds_(LoadBounds(G1_BOUNDS_PATH)),
       joints_metadata_(LoadMetadata(READER_BOUNDS_PATH)) {
@@ -69,36 +70,42 @@ static bool isInLeftArm(G1JointIndex joint){
 void G1Controller::Control() {
   MotorCommand motor_command_tmp;
   const std::shared_ptr<const MotorState> ms = motor_state_buffer_.GetData();
+  if (!ms) {
+    return;
+  }
+
+  if (!targets_initialized_) {
+    for (int i = 0; i < G1_NUM_MOTOR; ++i) {
+      const double q = ms->q.at(i);
+      commanded_targets_.at(i) = q;
+    }
+    targets_initialized_ = true;
+  }
 
   for (int i = 0; i < G1_NUM_MOTOR; ++i) {
     motor_command_tmp.tau_ff.at(i) = 0.0;
-    motor_command_tmp.q_target.at(i) = 0.0;
+    motor_command_tmp.q_target.at(i) = commanded_targets_.at(i);
     motor_command_tmp.dq_target.at(i) = 0.0;
     motor_command_tmp.kp.at(i) = Kp[i];
     motor_command_tmp.kd.at(i) = Kd[i];
   }
 
-    time_ += control_dt_;
-    mode_pr_ = Mode::PR;
+  mode_pr_ = Mode::PR;
 
-      /*
-      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
-        //double ratio = std::clamp(time_ / duration_, 0.0, 1.0);
-        //motor_command_tmp.q_target.at(i) = (1.0 - ratio) * ms->q.at(i);
-      }
-      */
-      const ExoReadings exo = joint_reader_.Eval();
-      
-      for (const auto& reading : exo) {
-        
-        if( isInLeftArm(reading.joint)){
-          if(reading.is_valid)
-            motor_command_tmp.q_target.at(reading.joint) = toG1Angle(reading);
-        }
-        
-      }
+  const ExoReadings exo = joint_reader_.Eval();
+  const double max_step = max_target_velocity_ * control_dt_;
+  for (const auto& reading : exo) {
+    if (reading.is_valid && isInLeftArm(reading.joint)) {
+      const int joint_index = static_cast<int>(reading.joint);
+      const double desired_target = toG1Angle(reading);
 
-      motor_command_buffer_.SetData(motor_command_tmp);
-      
-      //printDebug(exo);
+      commanded_targets_.at(joint_index) += std::clamp(
+          desired_target - commanded_targets_.at(joint_index), -max_step, max_step);
+      motor_command_tmp.q_target.at(joint_index) = commanded_targets_.at(joint_index);
+    }
+  }
+
+  motor_command_buffer_.SetData(motor_command_tmp);
+
+  //printDebug(exo);
 }

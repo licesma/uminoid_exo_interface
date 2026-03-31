@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <optional>
 
-#include "dynamixel_sdk.h"
+namespace dynamixel {
+class GroupFastSyncRead;
+}
 
 /**
  * Extracts and unwraps the Realtime Tick register (address 120, 2 bytes)
@@ -26,26 +28,7 @@ class DynamixelTimestampHelper {
    * @param sync_read  A GroupFastSyncRead that has already called txRxPacket().
    * @return           Monotonic timestamp in ms since first call, or nullopt if unavailable.
    */
-  std::optional<uint64_t> getTimestamp(dynamixel::GroupFastSyncRead& sync_read) {
-    if (!sync_read.isAvailable(motor_id_, ADDR_REALTIME_TICK, LEN_REALTIME_TICK)) {
-      return std::nullopt;
-    }
-
-    uint16_t tick = static_cast<uint16_t>(
-        sync_read.getData(motor_id_, ADDR_REALTIME_TICK, LEN_REALTIME_TICK));
-
-    if (first_tick_) {
-      first_tick_ = false;
-    } else {
-      uint16_t delta = (tick >= last_tick_)
-          ? (tick - last_tick_)
-          : (tick + TICK_MAX - last_tick_);
-      accumulated_ms_ += delta;
-    }
-    last_tick_ = tick;
-
-    return accumulated_ms_;
-  }
+  std::optional<uint64_t> getTimestamp(dynamixel::GroupFastSyncRead& sync_read);
 
  private:
   static constexpr uint16_t ADDR_REALTIME_TICK = 120;

@@ -1,4 +1,4 @@
-#include "serial_reader.hpp"
+#include "as5600_reader.hpp"
 #include "constants.hpp"
 
 #include <array>
@@ -34,7 +34,7 @@ static std::pair<std::string, uint16_t> parse_relay_address(
   return {host, port};
 }
 
-SerialReader::SerialReader(const std::string& relay_address) {
+AS5600Reader::AS5600Reader(const std::string& relay_address) {
   try {
     auto [host, port] = parse_relay_address(relay_address);
 
@@ -66,16 +66,16 @@ SerialReader::SerialReader(const std::string& relay_address) {
       throw std::runtime_error("connect() failed");
     }
   } catch (const std::exception& e) {
-    std::cerr << "SerialReader: failed to connect to relay " << relay_address
+    std::cerr << "AS5600Reader: failed to connect to relay " << relay_address
               << ": " << e.what() << "\n";
   }
 }
 
-SerialReader::~SerialReader() {
+AS5600Reader::~AS5600Reader() {
   Stop();
 }
 
-void SerialReader::Stop() {
+void AS5600Reader::Stop() {
   running_.store(false);
   if (socket_fd_ >= 0) {
     ::close(socket_fd_);
@@ -83,7 +83,7 @@ void SerialReader::Stop() {
   }
 }
 
-std::optional<SerialLine> SerialReader::GetNextLine() {
+std::optional<JointLine> AS5600Reader::GetNextLine() {
   uint8_t buf[FRAME_SIZE];
 
   while (running_.load() && socket_fd_ >= 0) {
@@ -119,7 +119,7 @@ std::optional<SerialLine> SerialReader::GetNextLine() {
       std::memcpy(&val, &buf[10 + joint * 2], sizeof(uint16_t));
       jointData[joint] = val;
     }
-    return SerialLine{timestamp, jointData};
+    return JointLine{timestamp, jointData};
   }
   return std::nullopt;
 }

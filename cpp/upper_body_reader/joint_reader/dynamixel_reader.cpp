@@ -1,5 +1,9 @@
 #include "dynamixel_reader.hpp"
 
+#include "group_fast_sync_read.h"
+#include "packet_handler.h"
+#include "port_handler.h"
+
 #include <cstdio>
 
 DynamixelReader::DynamixelReader(const std::string& device, int baudrate) {
@@ -42,7 +46,7 @@ void DynamixelReader::Stop() {
   group_sync_read_ = nullptr;
 }
 
-std::optional<DynamixelLine> DynamixelReader::GetNextLine() {
+std::optional<JointLine> DynamixelReader::GetNextLine() {
   if (!ok_ || !running_.load()) return std::nullopt;
 
   int result = group_sync_read_->txRxPacket();
@@ -68,5 +72,5 @@ std::optional<DynamixelLine> DynamixelReader::GetNextLine() {
     data[i] = static_cast<uint16_t>(pos & 0xFFFF);
   }
 
-  return DynamixelLine{*timestamp_ms, data};
+  return JointLine{*timestamp_ms, data};
 }

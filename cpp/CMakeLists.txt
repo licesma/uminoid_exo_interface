@@ -25,6 +25,9 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "Skip building librealsense examples" FORCE)
 set(BUILD_GRAPHICAL_EXAMPLES OFF CACHE BOOL "Skip building librealsense graphical examples" FORCE)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/librealsense librealsense)
 
+# DynamixelSDK
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/DynamixelSDK/c++ dynamixel_sdk)
+
 
 
 ######################################################################################################
@@ -74,3 +77,8 @@ target_compile_definitions(teleoperate PRIVATE
 add_executable(camera camera.cpp)
 target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera PRIVATE camera_recorder)
+
+# dynamixel joint reader
+add_library(dxl_joint_reader OBJECT joint_reader/dynamixel_reader.cpp)
+target_include_directories(dxl_joint_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/joint_reader)
+target_link_libraries(dxl_joint_reader PUBLIC dynamixel_sdk)

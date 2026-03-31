@@ -1,0 +1,72 @@
+#include "dynamixel_reader.hpp"
+
+#include <cstdio>
+
+DynamixelReader::DynamixelReader(const std::string& device, int baudrate) {
+  port_handler_ = dynamixel::PortHandler::getPortHandler(device.c_str());
+  packet_handler_ = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
+
+  if (!port_handler_->openPort()) {
+    fprintf(stderr, "DynamixelReader: failed to open port %s\n", device.c_str());
+    return;
+  }
+
+  if (!port_handler_->setBaudRate(baudrate)) {
+    fprintf(stderr, "DynamixelReader: failed to set baudrate %d\n", baudrate);
+    return;
+  }
+
+  group_sync_read_ = new dynamixel::GroupFastSyncRead(
+      port_handler_, packet_handler_, SYNC_READ_START, SYNC_READ_LEN);
+
+  for (size_t i = 0; i < DXL_ID_COUNT; ++i) {
+    if (!group_sync_read_->addParam(DXL_IDS[i])) {
+      fprintf(stderr, "[ID:%03d] groupFastSyncRead addParam failed\n", DXL_IDS[i]);
+      return;
+    }
+  }
+
+  ok_ = true;
+}
+
+DynamixelReader::~DynamixelReader() {
+  Stop();
+}
+
+void DynamixelReader::Stop() {
+  running_.store(false);
+  if (port_handler_) {
+    port_handler_->closePort();
+  }
+  delete group_sync_read_;
+  group_sync_read_ = nullptr;
+}
+
+std::optional<DynamixelLine> DynamixelReader::GetNextLine() {
+  if (!ok_ || !running_.load()) return std::nullopt;
+
+  int result = group_sync_read_->txRxPacket();
+  if (result != COMM_SUCCESS) {
+    return std::nullopt;
+  }
+
+  // Extract monotonic timestamp from Realtime Tick register
+  auto timestamp_ms = timestamp_helper_.getTimestamp(*group_sync_read_);
+  if (!timestamp_ms) {
+    fprintf(stderr, "Realtime Tick not available\n");
+    return std::nullopt;
+  }
+
+  // Read positions
+  std::array<uint16_t, JOINT_COUNT> data{};
+  for (size_t i = 0; i < DXL_ID_COUNT; ++i) {
+    if (!group_sync_read_->isAvailable(DXL_IDS[i], ADDR_PRESENT_POSITION, LEN_PRESENT_POSITION)) {
+      fprintf(stderr, "[ID:%03d] position data not available\n", DXL_IDS[i]);
+      return std::nullopt;
+    }
+    int32_t pos = group_sync_read_->getData(DXL_IDS[i], ADDR_PRESENT_POSITION, LEN_PRESENT_POSITION);
+    data[i] = static_cast<uint16_t>(pos & 0xFFFF);
+  }
+
+  return DynamixelLine{*timestamp_ms, data};
+}

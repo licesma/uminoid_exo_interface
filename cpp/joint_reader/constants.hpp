@@ -8,6 +8,7 @@
 */
 
 #include <cmath>
+#include <array>
 
 constexpr int JOINT_COUNT = 14;
 constexpr int ENCODER_RESOLUTION = 4096;
@@ -36,5 +37,22 @@ constexpr double ENCODER_PRECISION_RAD = ENCODER_PRECISION * 2.0 * M_PI;
     RightWristRoll     = 11,
     RightWristPitch    = 12,
     RightWristYaw      = 13,
+  };
+
+  const std::array<ExoIndex, JOINT_COUNT> EXO_JOINT_INDICES = {
+    ExoIndex::LeftShoulderPitch,
+    ExoIndex::LeftShoulderRoll, 
+    ExoIndex::LeftShoulderYaw, 
+    ExoIndex::LeftElbow, 
+    ExoIndex::LeftWristRoll, 
+    ExoIndex::LeftWristPitch, 
+    ExoIndex::LeftWristYaw, 
+    ExoIndex::RightShoulderPitch, 
+    ExoIndex::RightShoulderRoll, 
+    ExoIndex::RightShoulderYaw, 
+    ExoIndex::RightElbow, 
+    ExoIndex::RightWristRoll, 
+    ExoIndex::RightWristPitch, 
+    ExoIndex::RightWristYaw,
   };
   

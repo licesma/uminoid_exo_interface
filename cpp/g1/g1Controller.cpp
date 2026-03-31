@@ -1,5 +1,4 @@
 #include "g1Controller.hpp"
-#include "joint_reader/joint_reader.hpp"
 #include "utils/metadata_loader.hpp"
 
 #include <algorithm>
@@ -24,7 +23,7 @@ G1Controller::G1Controller(std::string networkInterface,
 
 
 
-void printDebug(ExoReadings exo){
+void printDebug(UpperBodyReadings exo){
 
   auto p = [&](int index) -> std::string {
     
@@ -45,7 +44,7 @@ void printDebug(ExoReadings exo){
   std::cout << out << std::flush;
 }
 
-double G1Controller::toG1Angle(JointReading reading){
+double G1Controller::toG1Angle(G1JointReading reading){
   auto [joint, netAngle, is_valid_] = reading;
   auto [low, high] = bounds_[joint];
   ReadingMetadata metadata = joints_metadata_[joint];
@@ -91,9 +90,9 @@ void G1Controller::Control() {
 
   mode_pr_ = Mode::PR;
 
-  const ExoReadings exo = joint_reader_.Eval();
+  const UpperBodyReadings upper_readings = joint_reader_.Eval();
   const double max_step = max_target_velocity_ * control_dt_;
-  for (const auto& reading : exo) {
+  for (const auto& reading : upper_readings) {
     if (reading.is_valid && isInLeftArm(reading.joint)) {
       const int joint_index = static_cast<int>(reading.joint);
       const double desired_target = toG1Angle(reading);
@@ -105,6 +104,4 @@ void G1Controller::Control() {
   }
 
   motor_command_buffer_.SetData(motor_command_tmp);
-
-  //printDebug(exo);
 }

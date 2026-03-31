@@ -18,7 +18,7 @@ struct G1JointReading {
   bool is_valid;
 };
 
-using G1UpperReadings = std::array<G1JointReading, 14>;
+using UpperBodyReadings = std::array<G1JointReading, 14>;
 
 class UpperBodyReader {
  public:
@@ -47,7 +47,7 @@ class UpperBodyReader {
     return latest_;
   }
 
-  G1UpperReadings Eval() const;
+  UpperBodyReadings Eval() const;
 
  private:
   void ReaderLoop();

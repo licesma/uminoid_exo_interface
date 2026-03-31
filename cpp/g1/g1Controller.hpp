@@ -3,7 +3,7 @@
 #include <array>
 #include <string>
 
-#include "../joint_reader/joint_reader.hpp"
+#include "upper_body_reader/upper_body_reader.hpp"
 #include "../utils/bounds_loader.hpp"
 #include "../utils/metadata_loader.hpp"
 #include "g1Robot.hpp"
@@ -15,10 +15,10 @@ class G1Controller : public G1Robot {
   bool targets_initialized_;
   std::array<double, G1_NUM_MOTOR> commanded_targets_;
 
-  JointReader joint_reader_;
+  UpperBodyReader joint_reader_;
   JointBounds bounds_;
   JointsReadingMetadata joints_metadata_;
-  double toG1Angle(JointReading reading);
+  double toG1Angle(G1JointReading reading);
 
  public:
   G1Controller(std::string networkInterface,

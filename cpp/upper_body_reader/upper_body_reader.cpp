@@ -64,7 +64,7 @@ void UpperBodyReader::ReaderLoop() {
   }
 }
 
-G1UpperReadings UpperBodyReader::Eval() const {
+UpperBodyReadings UpperBodyReader::Eval() const {
   const auto snapshot = Snapshot();
 
   auto getReadingValue = [&bounds = bounds_, &snapshot](ExoIndex j) {
@@ -81,7 +81,7 @@ G1UpperReadings UpperBodyReader::Eval() const {
     return G1JointReading{g1Idx, circularDistance(value, lower), true};
   };
 
-  G1UpperReadings joint_values;
+  UpperBodyReadings joint_values;
   for (auto joint : EXO_JOINT_INDICES)
     joint_values[static_cast<int>(joint)] = getReadingValue(joint);
   return joint_values;

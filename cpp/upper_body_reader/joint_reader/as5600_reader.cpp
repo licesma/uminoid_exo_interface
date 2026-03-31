@@ -1,5 +1,5 @@
 #include "as5600_reader.hpp"
-#include "constants.hpp"
+#include "../constants.hpp"
 
 #include <array>
 #include <cstdint>

@@ -33,6 +33,11 @@ UpperBodyReader::UpperBodyReader(const std::string& device, int baudrate,
 
 UpperBodyReader::~UpperBodyReader() {
   reader_->Stop();
+  {
+    std::lock_guard<std::mutex> lock(values_mutex_);
+    stopped_ = true;
+  }
+  values_cv_.notify_all();
   if (thread_.joinable()) thread_.join();
 }
 
@@ -59,9 +64,30 @@ void UpperBodyReader::ReaderLoop() {
   while (reader_->IsOk()) {
     auto frame = reader_->GetNextLine();
     if (!frame) break;
-    std::lock_guard<std::mutex> lock(values_mutex_);
-    latest_ = *frame;
+    {
+      std::lock_guard<std::mutex> lock(values_mutex_);
+      latest_ = *frame;
+      ++frame_seq_;
+    }
+    values_cv_.notify_all();
   }
+
+  {
+    std::lock_guard<std::mutex> lock(values_mutex_);
+    stopped_ = true;
+  }
+  values_cv_.notify_all();
+}
+
+std::optional<JointLine> UpperBodyReader::WaitNextSnapshot() {
+  std::unique_lock<std::mutex> lock(values_mutex_);
+  values_cv_.wait(lock, [&] { return stopped_ || frame_seq_ > consumed_seq_; });
+
+  if (frame_seq_ > consumed_seq_) {
+    consumed_seq_ = frame_seq_;
+    return latest_;
+  }
+  return std::nullopt;
 }
 
 UpperBodyReadings UpperBodyReader::Eval() const {

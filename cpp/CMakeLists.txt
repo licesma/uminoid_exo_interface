@@ -63,7 +63,7 @@ target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(g1 PUBLIC unitree_sdk2)
 target_compile_definitions(g1 PRIVATE
   G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
-  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/upperBodyReaderBounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/joint_reader/as5600_bounds.yaml"
 )
 
 
@@ -84,4 +84,11 @@ target_compile_definitions(teleoperate PRIVATE
 add_executable(camera camera.cpp)
 target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera PRIVATE camera_recorder)
+
+add_executable(dynamixel_test dynamixel_test.cpp)
+target_include_directories(dynamixel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(dynamixel_test PRIVATE upper_body_reader yaml-cpp)
+target_compile_definitions(dynamixel_test PRIVATE
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/joint_reader/as5600_bounds.yaml"
+)
 

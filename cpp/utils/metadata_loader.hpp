@@ -17,7 +17,7 @@ struct JointsReadingMetadata {
   const ReadingMetadata& operator[](G1JointIndex idx) const { return aligned_with_robot[idx]; }
 };
 
-/** Load per-joint metadata from a YAML file (e.g. upperBodyReaderBounds.yaml). */
+/** Load per-joint metadata from a YAML file (e.g. as5600_bounds.yaml). */
 inline JointsReadingMetadata LoadMetadata(const std::string& path) {
   try {
     YAML::Node config = YAML::LoadFile(path);

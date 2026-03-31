@@ -6,8 +6,11 @@
 #include "joint_reader/joint_reader.hpp"
 
 #include <array>
+#include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -26,13 +29,13 @@ class UpperBodyReader {
   explicit UpperBodyReader(
       const std::string& relay_address, double default_value = 0.0,
       const std::string& bounds_path =
-          "../upper_body_reader/upperBodyReaderBounds.yaml");
+          "../upper_body_reader/joint_reader/as5600_bounds.yaml");
 
   /** Construct with a DynamixelReader (USB/U2D2). */
   UpperBodyReader(
       const std::string& device, int baudrate,
       const std::string& bounds_path =
-          "../upper_body_reader/upperBodyReaderBounds.yaml");
+          "../upper_body_reader/joint_reader/as5600_bounds.yaml");
 
   ~UpperBodyReader();
 
@@ -47,6 +50,8 @@ class UpperBodyReader {
     return latest_;
   }
 
+  std::optional<JointLine> WaitNextSnapshot();
+
   UpperBodyReadings Eval() const;
 
  private:
@@ -54,7 +59,11 @@ class UpperBodyReader {
 
   std::unique_ptr<JointReader> reader_;
   JointBounds bounds_;
+  mutable std::condition_variable values_cv_;
   mutable std::mutex values_mutex_;
   JointLine latest_{};  // Guarded by values_mutex_
+  uint64_t frame_seq_{0};  // Guarded by values_mutex_
+  uint64_t consumed_seq_{0};  // Guarded by values_mutex_
+  bool stopped_{false};  // Guarded by values_mutex_
   std::thread thread_;
 };

@@ -1,0 +1,56 @@
+left_elbow:
+  aligned_with_robot: false
+  lower: 2.12916533358527
+  upper: -1.004757416065095
+left_shoulder_pitch:
+  aligned_with_robot: false
+  lower: 2.3086410857678903
+  upper: -2.356194490192345
+left_shoulder_roll:
+  aligned_with_robot: false
+  lower: 3.0710295373470533
+  upper: -0.5645049299419158
+left_shoulder_yaw:
+  aligned_with_robot: true
+  lower: 1.7794177139473435
+  upper: 0.7255729126699082
+left_wrist_pitch:
+  aligned_with_robot: false
+  lower: 1.4296700943094178
+  upper: -1.6659031356438063
+left_wrist_roll:
+  aligned_with_robot: false
+  lower: -0.8513593372765307
+  upper: 3.038815940801455
+left_wrist_yaw:
+  aligned_with_robot: false
+  lower: 2.9222334009221465
+  upper: -1.8960002538266525
+right_elbow:
+  aligned_with_robot: false
+  lower: -1.0472
+  upper: 2.0944
+right_shoulder_pitch:
+  aligned_with_robot: false
+  lower: -3.0892
+  upper: 2.6704
+right_shoulder_roll:
+  aligned_with_robot: false
+  lower: -2.2515
+  upper: 1.5882
+right_shoulder_yaw:
+  aligned_with_robot: false
+  lower: -2.618
+  upper: 2.618
+right_wrist_pitch:
+  aligned_with_robot: false
+  lower: -1.614429558
+  upper: 1.614429558
+right_wrist_roll:
+  aligned_with_robot: false
+  lower: -1.972222054
+  upper: 1.972222054
+right_wrist_yaw:
+  aligned_with_robot: false
+  lower: -1.614429558
+  upper: 1.614429558

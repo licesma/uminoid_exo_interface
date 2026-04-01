@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include <string>
 
 #include "upper_body_reader/upper_body_reader.hpp"
@@ -15,15 +16,15 @@ class G1Controller : public G1Robot {
   bool targets_initialized_;
   std::array<double, G1_NUM_MOTOR> commanded_targets_;
 
-  UpperBodyReader joint_reader_;
+  std::unique_ptr<UpperBodyReader> joint_reader_;
   JointBounds bounds_;
   JointsReadingMetadata joints_metadata_;
   double toG1Angle(G1JointReading reading);
 
  public:
   G1Controller(std::string networkInterface,
-               std::string serialDevice,
-               bool isSimulation );
+               std::unique_ptr<UpperBodyReader> jointReader,
+               bool isSimulation);
 
-  void Control() override; 
+  void Control() override;
 };

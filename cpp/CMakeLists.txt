@@ -86,6 +86,13 @@ add_executable(camera camera.cpp)
 target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera PRIVATE camera_recorder)
 
+add_executable(as5600_test as5600_test.cpp)
+target_include_directories(as5600_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(as5600_test PRIVATE upper_body_reader yaml-cpp)
+target_compile_definitions(as5600_test PRIVATE
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+)
+
 add_executable(dynamixel_test dynamixel_test.cpp)
 target_include_directories(dynamixel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(dynamixel_test PRIVATE upper_body_reader yaml-cpp)

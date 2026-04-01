@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 #include <string>
 #include <thread>
 #include <chrono>
@@ -6,6 +7,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "g1/g1Controller.hpp"
+#include "upper_body_reader/upper_body_reader.hpp"
 
 int main(int argc, char const *argv[]) {
   if (argc < 2) {
@@ -18,7 +20,8 @@ int main(int argc, char const *argv[]) {
   bool isSimulation = config["is_simulation"].as<bool>();
 
   std::string networkInterface = argv[1];
-  G1Controller custom(networkInterface, relay, isSimulation);
+  auto jointReader = std::make_unique<UpperBodyReader>(relay);
+  G1Controller custom(networkInterface, std::move(jointReader), isSimulation);
 
   while (true) {
     std::this_thread::sleep_for(std::chrono::seconds(1));

@@ -8,6 +8,11 @@
 #include <array>
 #include <string>
 
+#ifndef READER_BOUNDS_PATH
+#define READER_BOUNDS_PATH \
+  "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+#endif
+
 struct G1JointReading {
   G1JointIndex joint;
   double netAngle;
@@ -21,15 +26,13 @@ class UpperBodyReader {
   /** Construct with AS5600Arms (TCP relay). */
   explicit UpperBodyReader(
       const std::string& relay_address, double default_value = 0.0,
-      const std::string& bounds_path =
-          "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml");
+      const std::string& bounds_path = READER_BOUNDS_PATH);
 
   /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */
   UpperBodyReader(
       const std::string& left_device, const std::string& right_device,
       int baudrate,
-      const std::string& bounds_path =
-          "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml");
+      const std::string& bounds_path = READER_BOUNDS_PATH);
 
   ~UpperBodyReader() = default;
 

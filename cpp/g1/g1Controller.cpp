@@ -8,14 +8,14 @@
 #include <unitree/common/any.hpp>
 
 G1Controller::G1Controller(std::string networkInterface,
-                           std::string serialDevice,
+                           std::unique_ptr<UpperBodyReader> jointReader,
                            bool isSimulation)
     : G1Robot(networkInterface, isSimulation),
       control_dt_(0.002),
       max_target_velocity_(1.0),
       targets_initialized_(false),
       commanded_targets_{},
-      joint_reader_(serialDevice),
+      joint_reader_(std::move(jointReader)),
       bounds_(LoadBounds(G1_BOUNDS_PATH)),
       joints_metadata_(LoadMetadata(READER_BOUNDS_PATH)) {
   StartControlThread();
@@ -90,7 +90,7 @@ void G1Controller::Control() {
 
   mode_pr_ = Mode::PR;
 
-  const UpperBodyReadings upper_readings = joint_reader_.Eval();
+  const UpperBodyReadings upper_readings = joint_reader_->Eval();
   const double max_step = max_target_velocity_ * control_dt_;
   for (const auto& reading : upper_readings) {
     if (reading.is_valid && isInLeftArm(reading.joint)) {

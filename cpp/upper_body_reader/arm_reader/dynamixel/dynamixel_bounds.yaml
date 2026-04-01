@@ -1,7 +1,7 @@
 left_elbow:
-  aligned_with_robot: false
-  lower: 2.12916533358527
-  upper: -1.004757416065095
+  aligned_with_robot: true
+  lower: 2.356194490192345
+  upper: -0.5414952181236314
 left_shoulder_pitch:
   aligned_with_robot: false
   lower: 2.3086410857678903
@@ -28,7 +28,7 @@ left_wrist_yaw:
   upper: -1.8960002538266525
 right_elbow:
   aligned_with_robot: false
-  lower: -1.0472
+  lower: -1.0473
   upper: 2.0944
 right_shoulder_pitch:
   aligned_with_robot: false

@@ -20,7 +20,15 @@ int main(int argc, char const *argv[]) {
   bool isSimulation = config["is_simulation"].as<bool>();
 
   std::string networkInterface = argv[1];
-  auto jointReader = std::make_unique<UpperBodyReader>(relay);
+  //auto jointReader = std::make_unique<UpperBodyReader>(relay);
+  const std::string left_device = "/dev/ttyUSB0";
+  const std::string right_device = "";
+  const int baudrate = 1000000;
+
+  std::cout << "Starting Dynamixel reader on " << left_device << " + "
+            << right_device << " at " << baudrate << " baud" << std::endl;
+
+  auto  jointReader = std::make_unique<UpperBodyReader>(left_device, right_device, baudrate);
   G1Controller custom(networkInterface, std::move(jointReader), isSimulation);
 
   while (true) {

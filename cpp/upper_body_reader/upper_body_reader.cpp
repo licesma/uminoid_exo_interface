@@ -13,19 +13,19 @@ static G1JointReading invalidReading(G1JointIndex joint) {
 }
 
 UpperBodyReader::UpperBodyReader(const std::string& relay_address,
-                                 double default_value,
-                                 const std::string& bounds_path)
-    : left(std::make_unique<AS5600Arm>(relay_address, 0)),
+                                 double default_value)
+    : metadata(LoadMetadata(AS5600_BOUNDS_PATH)),
+      left(std::make_unique<AS5600Arm>(relay_address, 0)),
       right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)),
-      bounds_(LoadBounds(bounds_path)) {}
+      bounds_(LoadBounds(AS5600_BOUNDS_PATH)) {}
 
 UpperBodyReader::UpperBodyReader(const std::string& left_device,
                                  const std::string& right_device,
-                                 int baudrate,
-                                 const std::string& bounds_path)
-    : left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate)),
+                                 int baudrate)
+    : metadata(LoadMetadata(DYNAMIXEL_BOUNDS_PATH)),
+      left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate)),
       right(right_device.empty() ? nullptr : std::make_unique<DynamixelArm>(right_device, baudrate)),
-      bounds_(LoadBounds(bounds_path)) {}
+      bounds_(LoadBounds(DYNAMIXEL_BOUNDS_PATH)) {}
 
 void UpperBodyReader::PrintRaw() const {
   const auto left_data = left.Snapshot();

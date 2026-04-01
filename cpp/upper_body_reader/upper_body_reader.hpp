@@ -2,15 +2,21 @@
 
 #include "../g1/model/g1Enums.hpp"
 #include "../utils/bounds_loader.hpp"
+#include "../utils/metadata_loader.hpp"
 #include "arm_reader/arm_reader.hpp"
 #include "constants.hpp"
 
 #include <array>
 #include <string>
 
-#ifndef READER_BOUNDS_PATH
-#define READER_BOUNDS_PATH \
+#ifndef AS5600_BOUNDS_PATH
+#define AS5600_BOUNDS_PATH \
   "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+#endif
+
+#ifndef DYNAMIXEL_BOUNDS_PATH
+#define DYNAMIXEL_BOUNDS_PATH \
+  "../upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 #endif
 
 struct G1JointReading {
@@ -25,14 +31,12 @@ class UpperBodyReader {
  public:
   /** Construct with AS5600Arms (TCP relay). */
   explicit UpperBodyReader(
-      const std::string& relay_address, double default_value = 0.0,
-      const std::string& bounds_path = READER_BOUNDS_PATH);
+      const std::string& relay_address, double default_value = 0.0);
 
   /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */
   UpperBodyReader(
       const std::string& left_device, const std::string& right_device,
-      int baudrate,
-      const std::string& bounds_path = READER_BOUNDS_PATH);
+      int baudrate);
 
   ~UpperBodyReader() = default;
 
@@ -43,6 +47,7 @@ class UpperBodyReader {
   void PrintRaw() const;
   UpperBodyReadings Eval() const;
 
+  JointsReadingMetadata metadata;
   ArmReader left;
   ArmReader right;
 

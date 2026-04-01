@@ -18,7 +18,7 @@ from utils.convert_to_radian import convert_to_radian
 
 
 ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
-JOINT_BOUNDS_FILE = "./cpp/upper_body_reader/joint_reader/dynamixel_bounds.yaml"
+JOINT_BOUNDS_FILE = "./cpp/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 
 
 def load_yaml(path):

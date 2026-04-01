@@ -6,7 +6,6 @@
 
 #include "upper_body_reader/upper_body_reader.hpp"
 #include "../utils/bounds_loader.hpp"
-#include "../utils/metadata_loader.hpp"
 #include "g1Robot.hpp"
 
 class G1Controller : public G1Robot {
@@ -18,7 +17,6 @@ class G1Controller : public G1Robot {
 
   std::unique_ptr<UpperBodyReader> joint_reader_;
   JointBounds bounds_;
-  JointsReadingMetadata joints_metadata_;
   double toG1Angle(G1JointReading reading);
 
  public:

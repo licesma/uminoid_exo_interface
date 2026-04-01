@@ -3,16 +3,12 @@
 #include <cstdlib>
 #include <iostream>
 
-#ifndef READER_BOUNDS_PATH
-#define READER_BOUNDS_PATH "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
-#endif
-
 int main(int argc, char const* argv[]) {
   const std::string relay_address = argc >= 2 ? argv[1] : "127.0.0.1:5000";
 
   std::cout << "Starting AS5600 reader on " << relay_address << std::endl;
 
-  UpperBodyReader reader(relay_address, 0.0, READER_BOUNDS_PATH);
+  UpperBodyReader reader(relay_address);
 
   while (true) {
     const auto left = reader.left.WaitSnapshot();

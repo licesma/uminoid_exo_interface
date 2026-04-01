@@ -15,7 +15,7 @@ from joint_reader_constants import ENCODER_PRECISION_RAD
 
 
 ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
-JOINT_BOUNDS_FILE = "./cpp/joint_reader/upperBodyReaderBounds.yaml"
+JOINT_BOUNDS_FILE = "./cpp/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
 
 
 def load_yaml(path):

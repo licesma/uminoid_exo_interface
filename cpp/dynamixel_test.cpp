@@ -3,10 +3,6 @@
 #include <cstdlib>
 #include <iostream>
 
-#ifndef READER_BOUNDS_PATH
-#define READER_BOUNDS_PATH "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
-#endif
-
 int main(int argc, char const* argv[]) {
   const std::string left_device = argc >= 2 ? argv[1] : "/dev/ttyUSB0";
   const std::string right_device = argc >= 3 ? argv[2] : "";
@@ -15,7 +11,7 @@ int main(int argc, char const* argv[]) {
   std::cout << "Starting Dynamixel reader on " << left_device << " + "
             << right_device << " at " << baudrate << " baud" << std::endl;
 
-  UpperBodyReader reader(left_device, right_device, baudrate, READER_BOUNDS_PATH);
+  UpperBodyReader reader(left_device, right_device, baudrate);
 
   while (true) {
     const auto left = reader.left.WaitSnapshot();

@@ -1,5 +1,4 @@
 #include "g1Controller.hpp"
-#include "utils/metadata_loader.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -12,12 +11,11 @@ G1Controller::G1Controller(std::string networkInterface,
                            bool isSimulation)
     : G1Robot(networkInterface, isSimulation),
       control_dt_(0.002),
-      max_target_velocity_(1.0),
+      max_target_velocity_(2.0),
       targets_initialized_(false),
       commanded_targets_{},
       joint_reader_(std::move(jointReader)),
-      bounds_(LoadBounds(G1_BOUNDS_PATH)),
-      joints_metadata_(LoadMetadata(READER_BOUNDS_PATH)) {
+      bounds_(LoadBounds(G1_BOUNDS_PATH)) {
   StartControlThread();
 }
 
@@ -47,7 +45,9 @@ void printDebug(UpperBodyReadings exo){
 double G1Controller::toG1Angle(G1JointReading reading){
   auto [joint, netAngle, is_valid_] = reading;
   auto [low, high] = bounds_[joint];
-  ReadingMetadata metadata = joints_metadata_[joint];
+  ReadingMetadata metadata = joint_reader_->metadata[joint];
+  std::cout<<"["<<low<<", "<<high<<"]"<<std::endl;
+  std::cout<<"Aligned:"<<metadata.alignedWithRobot<<std::endl;
 
   double value = metadata.alignedWithRobot ? low + netAngle : high - netAngle;
   return std::clamp(value, low, high);
@@ -55,13 +55,13 @@ double G1Controller::toG1Angle(G1JointReading reading){
 
 static bool isInLeftArm(G1JointIndex joint){
   bool res = false;
-  res |= joint == G1JointIndex::LeftShoulderPitch;
-  res |= joint == G1JointIndex::LeftShoulderRoll;
-  res |= joint == G1JointIndex::LeftShoulderYaw;
+  //res |= joint == G1JointIndex::LeftShoulderPitch;
+  //res |= joint == G1JointIndex::LeftShoulderRoll;
+  //res |= joint == G1JointIndex::LeftShoulderYaw;
   res |= joint == G1JointIndex::LeftElbow;
-  res |= joint == G1JointIndex::LeftWristPitch;
-  res |= joint == G1JointIndex::LeftWristRoll;
-  res |= joint == G1JointIndex::LeftWristYaw;
+  //res |= joint == G1JointIndex::LeftWristPitch;
+  //res |= joint == G1JointIndex::LeftWristRoll;
+  //res |= joint == G1JointIndex::LeftWristYaw;
   return res;
 }
 

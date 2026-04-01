@@ -3,12 +3,14 @@
 #include "../constants.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 
 /** Data returned by a single-arm SkeletonArm. */
 struct ArmLine {
   uint64_t timestamp;
+  uint64_t host_timestamp; 
   std::array<uint16_t, ARM_JOINT_COUNT> data;
 };
 

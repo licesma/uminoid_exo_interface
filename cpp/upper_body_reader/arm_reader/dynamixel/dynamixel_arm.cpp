@@ -1,4 +1,4 @@
-#include "dynamixel_reader.hpp"
+#include "dynamixel_arm.hpp"
 
 #include "group_fast_sync_read.h"
 #include "packet_handler.h"
@@ -6,26 +6,27 @@
 
 #include <cstdio>
 
-DynamixelReader::DynamixelReader(const std::string& device, int baudrate) {
+DynamixelArm::DynamixelArm(const std::string& device, int baudrate) {
   port_handler_ = dynamixel::PortHandler::getPortHandler(device.c_str());
   packet_handler_ = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
 
   if (!port_handler_->openPort()) {
-    fprintf(stderr, "DynamixelReader: failed to open port %s\n", device.c_str());
+    fprintf(stderr, "DynamixelArm: failed to open port %s\n", device.c_str());
     return;
   }
 
   if (!port_handler_->setBaudRate(baudrate)) {
-    fprintf(stderr, "DynamixelReader: failed to set baudrate %d\n", baudrate);
+    fprintf(stderr, "DynamixelArm: failed to set baudrate %d on %s\n", baudrate, device.c_str());
     return;
   }
 
   group_sync_read_ = new dynamixel::GroupFastSyncRead(
       port_handler_, packet_handler_, SYNC_READ_START, SYNC_READ_LEN);
 
-  for (size_t i = 0; i < DXL_ID_COUNT; ++i) {
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
     if (!group_sync_read_->addParam(DXL_IDS[i])) {
-      fprintf(stderr, "[ID:%03d] groupFastSyncRead addParam failed\n", DXL_IDS[i]);
+      fprintf(stderr, "[%s][ID:%03d] groupFastSyncRead addParam failed\n",
+              device.c_str(), DXL_IDS[i]);
       return;
     }
   }
@@ -33,11 +34,11 @@ DynamixelReader::DynamixelReader(const std::string& device, int baudrate) {
   ok_ = true;
 }
 
-DynamixelReader::~DynamixelReader() {
+DynamixelArm::~DynamixelArm() {
   Stop();
 }
 
-void DynamixelReader::Stop() {
+void DynamixelArm::Stop() {
   running_.store(false);
   if (port_handler_) {
     port_handler_->closePort();
@@ -46,7 +47,7 @@ void DynamixelReader::Stop() {
   group_sync_read_ = nullptr;
 }
 
-std::optional<JointLine> DynamixelReader::GetNextLine() {
+std::optional<ArmLine> DynamixelArm::GetNextLine() {
   if (!ok_ || !running_.load()) return std::nullopt;
 
   int result = group_sync_read_->txRxPacket();
@@ -54,23 +55,22 @@ std::optional<JointLine> DynamixelReader::GetNextLine() {
     return std::nullopt;
   }
 
-  // Extract monotonic timestamp from Realtime Tick register
+  // Extract timestamp from Realtime Tick
   auto timestamp_ms = timestamp_helper_.getTimestamp(*group_sync_read_);
   if (!timestamp_ms) {
-    fprintf(stderr, "Realtime Tick not available\n");
     return std::nullopt;
   }
 
   // Read positions
-  std::array<uint16_t, JOINT_COUNT> data{};
-  for (size_t i = 0; i < DXL_ID_COUNT; ++i) {
+  std::array<uint16_t, ARM_JOINT_COUNT> data;
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
     if (!group_sync_read_->isAvailable(DXL_IDS[i], ADDR_PRESENT_POSITION, LEN_PRESENT_POSITION)) {
-      fprintf(stderr, "[ID:%03d] position data not available\n", DXL_IDS[i]);
-      return std::nullopt;
+      data[i] = FALLBACK_VALUE;
+      continue;
     }
     int32_t pos = group_sync_read_->getData(DXL_IDS[i], ADDR_PRESENT_POSITION, LEN_PRESENT_POSITION);
-    data[i] = static_cast<uint16_t>(pos & 0xFFFF);
+    data[i] = static_cast<uint16_t>(pos & 0x0FFF);
   }
 
-  return JointLine{*timestamp_ms, data};
+  return ArmLine{*timestamp_ms, data};
 }

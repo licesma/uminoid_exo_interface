@@ -10,6 +10,7 @@
 #include <cmath>
 #include <array>
 
+constexpr int ARM_JOINT_COUNT = 7;
 constexpr int JOINT_COUNT = 14;
 constexpr int ENCODER_RESOLUTION = 4096;
 constexpr double ENCODER_PRECISION = 1.0 / ENCODER_RESOLUTION;

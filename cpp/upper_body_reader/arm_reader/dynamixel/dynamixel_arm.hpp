@@ -1,7 +1,7 @@
 #pragma once
 
-#include "joint_reader.hpp"
-#include "../../utils/dynamixel_timestamp_helper.hpp"
+#include "../skeleton_arm.hpp"
+#include "../../../utils/dynamixel_timestamp_helper.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -14,18 +14,21 @@ class GroupFastSyncRead;
 }
 
 /**
- * Low-level Dynamixel reader using FastSyncRead over USB (U2D2).
- * Reads Realtime Tick + present position from a set of XL330 motors.
+ * Single-arm Dynamixel reader using FastSyncRead over USB (U2D2).
+ * GetNextLine() blocks on txRxPacket() and returns fresh data each call.
+ * If a joint is unavailable, its value defaults to FALLBACK_VALUE (5000).
  */
-class DynamixelReader : public JointReader {
+class DynamixelArm : public SkeletonArm {
  public:
-  explicit DynamixelReader(const std::string& device = "/dev/ttyUSB0",
+  static constexpr uint16_t FALLBACK_VALUE = 5000;
+
+  explicit DynamixelArm(const std::string& device = "/dev/ttyUSB0",
                            int baudrate = 1000000);
-  ~DynamixelReader() override;
+  ~DynamixelArm() override;
 
   bool IsOk() const override { return ok_; }
   void Stop() override;
-  std::optional<JointLine> GetNextLine() override;
+  std::optional<ArmLine> GetNextLine() override;
 
  private:
   // Realtime Tick: address 120, 2 bytes (uint16, ms, wraps at 32767)
@@ -37,14 +40,12 @@ class DynamixelReader : public JointReader {
   static constexpr uint16_t LEN_PRESENT_POSITION = 4;
 
   // Sync read from ADDR_REALTIME_TICK to end of ADDR_PRESENT_POSITION
-  // 132 + 4 - 120 = 16 bytes
   static constexpr uint16_t SYNC_READ_START = ADDR_REALTIME_TICK;
   static constexpr uint16_t SYNC_READ_LEN =
       (ADDR_PRESENT_POSITION + LEN_PRESENT_POSITION) - ADDR_REALTIME_TICK;
 
   static constexpr float PROTOCOL_VERSION = 2.0;
   static constexpr uint8_t DXL_IDS[] = {1, 2, 3, 4, 5, 6, 7};
-  static constexpr size_t DXL_ID_COUNT = sizeof(DXL_IDS) / sizeof(DXL_IDS[0]);
 
   dynamixel::PortHandler* port_handler_{nullptr};
   dynamixel::PacketHandler* packet_handler_{nullptr};

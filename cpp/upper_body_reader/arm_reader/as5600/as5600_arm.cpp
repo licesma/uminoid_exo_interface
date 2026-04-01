@@ -1,5 +1,5 @@
-#include "as5600_reader.hpp"
-#include "../constants.hpp"
+#include "as5600_arm.hpp"
+#include "../../constants.hpp"
 
 #include <array>
 #include <cstdint>
@@ -9,7 +9,7 @@
 
 static constexpr uint16_t SYNC_WORD = 0xAA55;
 static constexpr size_t FRAME_SIZE = 40;   // 2 header + 8 ts + 28 vals + 2 crc
-static constexpr size_t VALUES_COUNT = 14;
+static constexpr size_t FRAME_JOINT_COUNT = 14;
 
 static uint16_t crc16_ccitt(const uint8_t* data, size_t len,
                             uint16_t init = 0xFFFF) {
@@ -34,7 +34,8 @@ static std::pair<std::string, uint16_t> parse_relay_address(
   return {host, port};
 }
 
-AS5600Reader::AS5600Reader(const std::string& relay_address) {
+AS5600Arm::AS5600Arm(const std::string& relay_address, size_t joint_offset)
+    : joint_offset_(joint_offset) {
   try {
     auto [host, port] = parse_relay_address(relay_address);
 
@@ -66,16 +67,16 @@ AS5600Reader::AS5600Reader(const std::string& relay_address) {
       throw std::runtime_error("connect() failed");
     }
   } catch (const std::exception& e) {
-    std::cerr << "AS5600Reader: failed to connect to relay " << relay_address
+    std::cerr << "AS5600Arm: failed to connect to relay " << relay_address
               << ": " << e.what() << "\n";
   }
 }
 
-AS5600Reader::~AS5600Reader() {
+AS5600Arm::~AS5600Arm() {
   Stop();
 }
 
-void AS5600Reader::Stop() {
+void AS5600Arm::Stop() {
   running_.store(false);
   if (socket_fd_ >= 0) {
     ::close(socket_fd_);
@@ -83,7 +84,7 @@ void AS5600Reader::Stop() {
   }
 }
 
-std::optional<JointLine> AS5600Reader::GetNextLine() {
+std::optional<ArmLine> AS5600Arm::GetNextLine() {
   uint8_t buf[FRAME_SIZE];
 
   while (running_.load() && socket_fd_ >= 0) {
@@ -113,13 +114,14 @@ std::optional<JointLine> AS5600Reader::GetNextLine() {
     uint64_t timestamp;
     std::memcpy(&timestamp, &buf[2], sizeof(uint64_t));
 
-    std::array<uint16_t, JOINT_COUNT> jointData;
-    for (size_t joint = 0; joint < JOINT_COUNT; ++joint) {
+    // Extract only this arm's joints
+    std::array<uint16_t, ARM_JOINT_COUNT> jointData;
+    for (size_t j = 0; j < ARM_JOINT_COUNT; ++j) {
       uint16_t val;
-      std::memcpy(&val, &buf[10 + joint * 2], sizeof(uint16_t));
-      jointData[joint] = val;
+      std::memcpy(&val, &buf[10 + (joint_offset_ + j) * 2], sizeof(uint16_t));
+      jointData[j] = val;
     }
-    return JointLine{timestamp, jointData};
+    return ArmLine{timestamp, jointData};
   }
   return std::nullopt;
 }

@@ -45,8 +45,9 @@ find_package(yaml-cpp REQUIRED)
 add_library(
   upper_body_reader OBJECT
   upper_body_reader/upper_body_reader.cpp
-  upper_body_reader/joint_reader/as5600_reader.cpp
-  upper_body_reader/joint_reader/dynamixel_reader.cpp
+  upper_body_reader/arm_reader/arm_reader.cpp
+  upper_body_reader/arm_reader/as5600/as5600_arm.cpp
+  upper_body_reader/arm_reader/dynamixel/dynamixel_arm.cpp
   utils/dynamixel_timestamp_helper.cpp
 )
 target_include_directories(upper_body_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -63,7 +64,7 @@ target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(g1 PUBLIC unitree_sdk2)
 target_compile_definitions(g1 PRIVATE
   G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
-  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/joint_reader/as5600_bounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
 )
 
 
@@ -89,6 +90,6 @@ add_executable(dynamixel_test dynamixel_test.cpp)
 target_include_directories(dynamixel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(dynamixel_test PRIVATE upper_body_reader yaml-cpp)
 target_compile_definitions(dynamixel_test PRIVATE
-  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/joint_reader/as5600_bounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
 )
 

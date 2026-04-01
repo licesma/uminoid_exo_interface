@@ -1,7 +1,7 @@
 #include "upper_body_reader.hpp"
 
-#include "joint_reader/as5600_reader.hpp"
-#include "joint_reader/dynamixel_reader.hpp"
+#include "arm_reader/as5600/as5600_arm.hpp"
+#include "arm_reader/dynamixel/dynamixel_arm.hpp"
 
 #include "../utils/circular_math.hpp"
 #include "constants.hpp"
@@ -15,38 +15,25 @@ static G1JointReading invalidReading(G1JointIndex joint) {
 UpperBodyReader::UpperBodyReader(const std::string& relay_address,
                                  double default_value,
                                  const std::string& bounds_path)
-    : bounds_(LoadBounds(bounds_path)) {
-  reader_ = std::make_unique<AS5600Reader>(relay_address);
-  if (!reader_->IsOk()) return;
+    : left(std::make_unique<AS5600Arm>(relay_address, 0)),
+      right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)),
+      bounds_(LoadBounds(bounds_path)) {}
 
-  thread_ = std::thread(&UpperBodyReader::ReaderLoop, this);
-}
-
-UpperBodyReader::UpperBodyReader(const std::string& device, int baudrate,
+UpperBodyReader::UpperBodyReader(const std::string& left_device,
+                                 const std::string& right_device,
+                                 int baudrate,
                                  const std::string& bounds_path)
-    : bounds_(LoadBounds(bounds_path)) {
-  reader_ = std::make_unique<DynamixelReader>(device, baudrate);
-  if (!reader_->IsOk()) return;
-
-  thread_ = std::thread(&UpperBodyReader::ReaderLoop, this);
-}
-
-UpperBodyReader::~UpperBodyReader() {
-  reader_->Stop();
-  {
-    std::lock_guard<std::mutex> lock(values_mutex_);
-    stopped_ = true;
-  }
-  values_cv_.notify_all();
-  if (thread_.joinable()) thread_.join();
-}
+    : left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate)),
+      right(right_device.empty() ? nullptr : std::make_unique<DynamixelArm>(right_device, baudrate)),
+      bounds_(LoadBounds(bounds_path)) {}
 
 void UpperBodyReader::PrintRaw() const {
-  const auto s = Snapshot();
+  const auto left_data = left.Snapshot();
+  const auto right_data = right.Snapshot();
 
-  auto p = [&](int i) -> std::string {
+  auto p = [](uint16_t val) -> std::string {
     char buf[12];
-    std::snprintf(buf, sizeof(buf), "  %5u |", s.data[i]);
+    std::snprintf(buf, sizeof(buf), "  %5u |", val);
     return buf;
   };
 
@@ -54,50 +41,29 @@ void UpperBodyReader::PrintRaw() const {
   out += "\033[H\033[J";
   out += "__________________________________________________________________________\n";
   out += " L_sh_pit | L_sh_rol | L_sh_yaw |  L_elbow | L_wr_rol | L_wr_pit | L_wr_yaw\n";
-  out += p(0) + p(1) + p(2) + p(3) + p(4) + p(5) + p(6) + "\n";
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) out += p(left_data.data[i]);
+  out += "\n";
   out += " R_sh_pit | R_sh_rol | R_sh_yaw |  R_elbow | R_wr_rol | R_wr_pit | R_wr_yaw\n";
-  out += p(7) + p(8) + p(9) + p(10) + p(11) + p(12) + p(13) + "\n";
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) out += p(right_data.data[i]);
+  out += "\n";
   std::cout << out << std::flush;
 }
 
-void UpperBodyReader::ReaderLoop() {
-  while (reader_->IsOk()) {
-    auto frame = reader_->GetNextLine();
-    if (!frame) break;
-    {
-      std::lock_guard<std::mutex> lock(values_mutex_);
-      latest_ = *frame;
-      ++frame_seq_;
-    }
-    values_cv_.notify_all();
-  }
-
-  {
-    std::lock_guard<std::mutex> lock(values_mutex_);
-    stopped_ = true;
-  }
-  values_cv_.notify_all();
-}
-
-std::optional<JointLine> UpperBodyReader::WaitNextSnapshot() {
-  std::unique_lock<std::mutex> lock(values_mutex_);
-  values_cv_.wait(lock, [&] { return stopped_ || frame_seq_ > consumed_seq_; });
-
-  if (frame_seq_ > consumed_seq_) {
-    consumed_seq_ = frame_seq_;
-    return latest_;
-  }
-  return std::nullopt;
-}
-
 UpperBodyReadings UpperBodyReader::Eval() const {
-  const auto snapshot = Snapshot();
+  const auto left_data = left.Snapshot();
+  const auto right_data = right.Snapshot();
 
-  auto getReadingValue = [&bounds = bounds_, &snapshot](ExoIndex j) {
+  std::array<uint16_t, JOINT_COUNT> combined{};
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
+    combined[i] = left_data.data[i];
+    combined[ARM_JOINT_COUNT + i] = right_data.data[i];
+  }
+
+  auto getReadingValue = [&bounds = bounds_, &combined](ExoIndex j) {
     int exoIdx = static_cast<int>(j);
     G1JointIndex g1Idx = getG1JointIndex(j);
     auto [lower, upper] = bounds[g1Idx];
-    int bit_value = snapshot.data[exoIdx];
+    int bit_value = combined[exoIdx];
     double value = (bit_value - ENCODER_RESOLUTION / 2.0) * ENCODER_PRECISION_RAD;
 
     if (bit_value == 5000) return invalidReading(g1Idx);

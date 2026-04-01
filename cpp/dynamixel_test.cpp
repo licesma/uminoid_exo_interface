@@ -4,24 +4,32 @@
 #include <iostream>
 
 #ifndef READER_BOUNDS_PATH
-#define READER_BOUNDS_PATH "../upper_body_reader/joint_reader/as5600_bounds.yaml"
+#define READER_BOUNDS_PATH "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
 #endif
 
 int main(int argc, char const* argv[]) {
-  const std::string device = argc >= 2 ? argv[1] : "/dev/ttyUSB0";
-  const int baudrate = argc >= 3 ? std::atoi(argv[2]) : 1000000;
+  const std::string left_device = argc >= 2 ? argv[1] : "/dev/ttyUSB0";
+  const std::string right_device = argc >= 3 ? argv[2] : "";
+  const int baudrate = argc >= 4 ? std::atoi(argv[3]) : 1000000;
 
-  std::cout << "Starting Dynamixel reader on " << device << " at " << baudrate
-            << " baud" << std::endl;
+  std::cout << "Starting Dynamixel reader on " << left_device << " + "
+            << right_device << " at " << baudrate << " baud" << std::endl;
 
-  UpperBodyReader reader(device, baudrate, READER_BOUNDS_PATH);
+  UpperBodyReader reader(left_device, right_device, baudrate, READER_BOUNDS_PATH);
 
   while (true) {
-    const auto snapshot = reader.WaitNextSnapshot();
-    if (!snapshot) break;
+    const auto left = reader.left.WaitSnapshot();
+    const auto right = reader.right.WaitSnapshot();
+    if (!left && !right) break;
 
-    std::cout << snapshot->timestamp;
-    for (const auto value : snapshot->data) std::cout << ' ' << value;
+    if (left) {
+      std::cout << "L[" << left->timestamp << "]:";
+      for (const auto v : left->data) std::cout << ' ' << v;
+    }
+    if (right) {
+      std::cout << "  R[" << right->timestamp << "]:";
+      for (const auto v : right->data) std::cout << ' ' << v;
+    }
     std::cout << std::endl;
   }
 

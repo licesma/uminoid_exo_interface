@@ -1,0 +1,32 @@
+left:
+  index:
+    high: 0.18
+    low: 0.105
+  middle:
+    high: 0.18
+    low: 0.105
+  pinky:
+    high: 0.13
+    low: 0.076
+  ring:
+    high: 0.162
+    low: 0.1
+  thumb:
+    high: 0.1
+    low: 0.0
+right:
+  index:
+    high: 0.17800000309944153
+    low: 0.10100000351667404
+  middle:
+    high: 0.17499999701976776
+    low: 0.10100000351667404
+  pinky:
+    high: 0.12800000607967377
+    low: 0.08699999749660492
+  ring:
+    high: 0.15800000727176666
+    low: 0.09200000017881393
+  thumb:
+    high: 0.1
+    low: 0.0

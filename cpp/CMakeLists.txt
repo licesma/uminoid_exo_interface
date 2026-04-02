@@ -62,6 +62,13 @@ add_library(camera_recorder OBJECT camera/camera_recorder.cpp)
 target_include_directories(camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera_recorder PUBLIC realsense2)
 
+# manus hand reader
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ZMQ REQUIRED libzmq)
+add_library(manus_reader OBJECT manus/manus_reader.cpp manus/manus_hand.cpp)
+target_include_directories(manus_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
+target_link_libraries(manus_reader PUBLIC ${ZMQ_LIBRARIES})
+
 # g1 robot and controller
 add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
 target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -102,5 +109,17 @@ target_include_directories(dynamixel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(dynamixel_test PRIVATE upper_body_reader yaml-cpp)
 target_compile_definitions(dynamixel_test PRIVATE
   DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
+)
+
+add_executable(manus_test manus_test.cpp)
+target_include_directories(manus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(manus_test PRIVATE manus_reader)
+
+add_executable(dynamixel_collect dynamixel_collect.cpp)
+target_include_directories(dynamixel_collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(dynamixel_collect PRIVATE upper_body_reader yaml-cpp)
+target_compile_definitions(dynamixel_collect PRIVATE
+  DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
+  PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
 )
 

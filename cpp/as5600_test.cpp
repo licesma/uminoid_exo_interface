@@ -11,8 +11,8 @@ int main(int argc, char const* argv[]) {
   UpperBodyReader reader(relay_address);
 
   while (true) {
-    const auto left = reader.left.WaitSnapshot();
-    const auto right = reader.right.WaitSnapshot();
+    const auto left = reader.left.wait_for_next();
+    const auto right = reader.right.wait_for_next();
     if (!left && !right) break;
 
     if (left) {

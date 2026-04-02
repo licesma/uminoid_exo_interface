@@ -27,7 +27,7 @@ class ArmReader {
   ArmLine Snapshot() const;
 
   /** Blocking: waits until a new reading arrives since the last call. */
-  std::optional<ArmLine> WaitSnapshot();
+  std::optional<ArmLine> wait_for_next();
 
   void Stop();
 

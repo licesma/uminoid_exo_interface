@@ -25,7 +25,7 @@ ArmLine ArmReader::Snapshot() const {
   return latest_;
 }
 
-std::optional<ArmLine> ArmReader::WaitSnapshot() {
+std::optional<ArmLine> ArmReader::wait_for_next() {
   std::unique_lock<std::mutex> lock(mutex_);
   cv_.wait(lock, [&] { return stopped_ || frame_seq_ > consumed_seq_; });
 

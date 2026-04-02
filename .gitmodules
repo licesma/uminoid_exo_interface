@@ -7,3 +7,6 @@
 [submodule "third_party/DynamixelSDK"]
 	path = third_party/DynamixelSDK
 	url = git@github.com:licesma/DynamixelSDK.git
+[submodule "third_party/dfx_inspire_service"]
+	path = third_party/dfx_inspire_service
+	url = https://github.com/licesma/dfx_inspire_service

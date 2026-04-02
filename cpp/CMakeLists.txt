@@ -28,6 +28,9 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/librealsense libreal
 # DynamixelSDK
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/DynamixelSDK/c++ dynamixel_sdk)
 
+# DFX Inspire Hand Service
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service dfx_inspire_service)
+
 
 
 ######################################################################################################

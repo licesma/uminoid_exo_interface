@@ -1,3 +1,5 @@
+#pragma once
+
 #include <array>
 
 enum class HandSide { LEFT, RIGHT };

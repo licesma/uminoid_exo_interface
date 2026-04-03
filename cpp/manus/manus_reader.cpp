@@ -74,16 +74,32 @@ void ManusReader::loop() {
     }
 }
 
-std::pair<std::optional<ManusHand>, std::optional<ManusHand>> ManusReader::step() {
+ManusReader::ManusPose ManusReader::step() {
     std::lock_guard<std::mutex> guard(lock_);
     return {left_, right_};
 }
 
-std::pair<std::optional<ManusHand>, std::optional<ManusHand>> ManusReader::wait_for_next() {
+ManusReader::ManusPose ManusReader::wait_for_next() {
     std::unique_lock<std::mutex> guard(lock_);
     cv_.wait(guard, [this] { return new_data_ || !running_.load(); });
     new_data_ = false;
     return {left_, right_};
+}
+
+std::optional<ManusReader::ManusPose> ManusReader::wait_for_next(
+    const std::function<bool()>& stop_requested
+) {
+    std::unique_lock<std::mutex> guard(lock_);
+    cv_.wait(guard, [this, &stop_requested] {
+        return new_data_ || !running_.load() || stop_requested();
+    });
+
+    if (stop_requested() || !new_data_) {
+        return std::nullopt;
+    }
+
+    new_data_ = false;
+    return ManusPose{left_, right_};
 }
 
 void ManusReader::stop() {

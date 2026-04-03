@@ -118,6 +118,23 @@ add_executable(manus_test manus_test.cpp)
 target_include_directories(manus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(manus_test PRIVATE manus_reader)
 
+add_executable(inspire_test inspire_test.cpp)
+target_include_directories(inspire_test PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
+
+add_library(inspire_retargeter OBJECT hand_retarget/inspire/inspire_retargeter.cpp)
+target_include_directories(inspire_retargeter PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
+target_link_libraries(inspire_retargeter PUBLIC yaml-cpp)
+
+add_executable(manus_to_inspire manus_to_inspire.cpp)
+target_include_directories(manus_to_inspire PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(manus_to_inspire PRIVATE inspire_retargeter manus_reader)
+target_compile_definitions(manus_to_inspire PRIVATE
+  BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hand_retarget/inspire/inspire_retarget_bounds.yaml"
+)
+
 add_executable(dynamixel_collect dynamixel_collect.cpp)
 target_include_directories(dynamixel_collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(dynamixel_collect PRIVATE upper_body_reader yaml-cpp)

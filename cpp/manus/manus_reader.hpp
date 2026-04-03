@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -12,14 +13,17 @@
 
 class ManusReader {
 public:
+    using ManusPose = std::pair<std::optional<ManusHand>, std::optional<ManusHand>>;
+
     ManusReader(
         const std::string& left_address  = "tcp://localhost:8002",
         const std::string& right_address = "tcp://localhost:8003"
     );
     ~ManusReader();
 
-    std::pair<std::optional<ManusHand>, std::optional<ManusHand>> step();
-    std::pair<std::optional<ManusHand>, std::optional<ManusHand>> wait_for_next();
+    ManusPose step();
+    ManusPose wait_for_next();
+    std::optional<ManusPose> wait_for_next(const std::function<bool()>& stop_requested);
 
     void stop();
 

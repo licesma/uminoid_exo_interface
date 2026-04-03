@@ -1,10 +1,53 @@
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
+#include "manus/manus_hand.hpp"
+#include "manus/manus_reader.hpp"
+#include "utils/repo_constants.hpp"
+
+#include "utils/time.hpp"
+#include "utils/type.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <stdexcept>
+#include <optional>
+#include <thread>
 
-InspireRetargeter::InspireRetargeter(const std::string& device, const std::string& bounds_path, uint8_t id)
-    : serial_(std::make_shared<SerialPort>(device, B115200, 200)),
-      hand_(serial_, id)
+namespace {
+
+std::string csv_header() {
+    return "timestamp,"
+           "left_pinky,left_ring,left_middle,left_index,left_thumb_bend,left_thumb_rotation,"
+           "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
+}
+
+void write_line(std::ofstream& f, int64_t timestamp,
+                const opt<InspirePose>& left,
+                const opt<InspirePose>& right) {
+    f << timestamp;
+    if(left)
+        for (int i = 0; i < 6; ++i) f << "," << (*left)(i);
+    else
+        for (int i = 0; i < 6; ++i) f << "," << "null";
+
+    if(right)
+        for (int i = 0; i < 6; ++i) f << "," << (*right)(i);
+    else
+        for (int i = 0; i < 6; ++i) f << "," << "null";
+    f << "\n";
+}
+
+}  // namespace
+
+InspireRetargeter::InspireRetargeter(
+    const std::string& left_device,
+    const std::string& right_device,
+    const std::string& bounds_path,
+    uint8_t id
+)
+    : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200)),
+      right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200)),
+      left_hand_(left_serial_, id),
+      right_hand_(right_serial_, id)
 {
     YAML::Node config = YAML::LoadFile(bounds_path);
     left_bounds_  = load_bounds(config["left"]);
@@ -13,6 +56,23 @@ InspireRetargeter::InspireRetargeter(const std::string& device, const std::strin
 
 double InspireRetargeter::scale(float value, double low, double high) {
     return std::clamp((value - low) / (high - low), 0.0, 1.0);
+}
+
+std::ofstream InspireRetargeter::get_recording_csv(const std::string& recording_name) {
+    if (recording_name.empty()) {
+        return {};
+    }
+
+    const std::string data_dir = repo_constants::DATA_DIR;
+    const std::string csv_path = data_dir + "/" + recording_name + "_hands.csv";
+    std::ofstream csv(csv_path);
+
+    if (!csv) {
+        throw std::runtime_error("Failed to open CSV file: " + csv_path);
+    }
+
+    csv << csv_header() << "\n";
+    return csv;
 }
 
 InspireRetargeter::HandBounds InspireRetargeter::load_bounds(const YAML::Node& node) {
@@ -25,19 +85,92 @@ InspireRetargeter::HandBounds InspireRetargeter::load_bounds(const YAML::Node& n
     return b;
 }
 
-Eigen::Matrix<double, 6, 1> InspireRetargeter::retarget(const ManusHand& hand, HandSide side) const {
-    const auto& bounds = (side == HandSide::LEFT) ? left_bounds_ : right_bounds_;
+void InspireRetargeter::record_loop(const std::string& recording_name) {
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+        queued_samples_.clear();
+        writer_done_ = false;
+    }
 
-    Eigen::Matrix<double, 6, 1> out;
-    out(0) = scale(hand.pinky.wrist_to_tip,   bounds.pinky.low,  bounds.pinky.high);
-    out(1) = scale(hand.ring.wrist_to_tip,    bounds.ring.low,   bounds.ring.high);
-    out(2) = scale(hand.middle.wrist_to_tip,  bounds.middle.low, bounds.middle.high);
-    out(3) = scale(hand.index.wrist_to_tip,   bounds.index.low,  bounds.index.high);
-    out(4) = scale(hand.thumb.pinky_to_thumb, bounds.thumb.low,  bounds.thumb.high);
-    out(5) = 1.0;  // thumb_rotation
-    return out;
+    hand_csv_ = get_recording_csv(recording_name);
+    uint64_t logged_count = 0;
+
+    while (true) {
+        std::deque<LoggedHandSample> batch;
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            queue_cv_.wait(lock, [&] {
+                return writer_done_ || !queued_samples_.empty();
+            });
+            batch.swap(queued_samples_);
+            if (writer_done_ && batch.empty()) {
+                break;
+            }
+        }
+
+        for (const auto& sample : batch) {
+                write_line(hand_csv_, sample.hand_timestamp, sample.left_target , sample.right_target);
+                if (++logged_count % 1000 == 0) {
+                    hand_csv_.flush();
+                }
+        }
+    }
+
+    hand_csv_.flush();
+    hand_csv_.close();
+
 }
 
-void InspireRetargeter::send(const Eigen::Matrix<double, 6, 1>& target) {
-    hand_.SetPosition(target);
+opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSide side) const {
+    if(hand){
+        const auto& bounds = (side == HandSide::LEFT) ? left_bounds_ : right_bounds_;
+
+        InspirePose out;
+        out(0) = scale(hand->pinky.wrist_to_tip,   bounds.pinky.low,  bounds.pinky.high);
+        out(1) = scale(hand->ring.wrist_to_tip,    bounds.ring.low,   bounds.ring.high);
+        out(2) = scale(hand->middle.wrist_to_tip,  bounds.middle.low, bounds.middle.high);
+        out(3) = scale(hand->index.wrist_to_tip,   bounds.index.low,  bounds.index.high);
+        out(4) = scale(hand->thumb.pinky_to_thumb, bounds.thumb.low,  bounds.thumb.high);
+        out(5) = 1.0;  // thumb_rotation
+        return out;
+    }
+   return std::nullopt;
+}
+
+void InspireRetargeter::retarget_loop(
+    ManusReader& manus,
+    const std::function<bool()>& stop_requested,
+    const std::string& recording_name
+) {
+    std::thread writer_thread;
+    const bool recording_enabled = !recording_name.empty();
+
+    if (recording_enabled) {
+        writer_thread = std::thread(&InspireRetargeter::record_loop, this, recording_name);
+    }
+
+    while (auto pose = manus.wait_for_next(stop_requested)) {
+        auto& [left, right] = *pose;
+
+        opt<InspirePose> left_target  = retarget(*left,  HandSide::LEFT);
+        opt<InspirePose> right_target = retarget(*right, HandSide::RIGHT);
+
+        left_target && left_hand_.SetPosition(*left_target);
+        right_target && right_hand_.SetPosition(*right_target);
+
+        if (recording_enabled) {
+            std::lock_guard<std::mutex> lock(queue_mutex_);
+            queued_samples_.push_back({Time::ts(), left_target, right_target});
+            queue_cv_.notify_one();
+        }
+    }
+
+    if (writer_thread.joinable()) {
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex_);
+            writer_done_ = true;
+        }
+        queue_cv_.notify_one();
+        writer_thread.join();
+    }
 }

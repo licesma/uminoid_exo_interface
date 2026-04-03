@@ -1,20 +1,15 @@
 #include "camera_recorder.hpp"
 
+#include "utils/csv_saver.hpp"
+
 #include <librealsense2/rs.hpp>
 
 #include <iostream>
-#include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
-#include <csignal>
-
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "utils/stb_image_write.h"
-
-static volatile bool running = true;
-
-void signal_handler(int) { running = false; }
 
 CameraRecorder::CameraRecorder(const std::string& output_dir, int framerate, int save_batch_size)
     : output_dir_(output_dir), framerate(framerate), save_batch_size_(save_batch_size) {
@@ -74,9 +69,7 @@ void CameraRecorder::stop_writer() {
     writer_.join();
 }
 
-void CameraRecorder::record() {
-    std::signal(SIGINT, signal_handler);
-
+void CameraRecorder::collect_loop(const std::function<bool()>& stop_requested) {
     std::filesystem::create_directories(output_dir_);
 
     rs2::config cfg;
@@ -90,14 +83,14 @@ void CameraRecorder::record() {
 
     std::cout << "Recording color frames to '" << output_dir_ << "/' — press Ctrl+C to stop." << std::endl;
 
-    std::ofstream csv(output_dir_ + "/metadata.csv");
-    csv << "frame_number,camera_timestamp_ms,host_timestamp_ms" << std::endl;
+    CsvSaver csv(output_dir_ + "/metadata.csv",
+                 "frame_number,camera_timestamp_ms,host_timestamp_ms");
 
     start_writer();
 
     int frame_count = 0;
 
-    while (running) {
+    while (!stop_requested()) {
         rs2::frameset frames = pipe.wait_for_frames();
         rs2::video_frame color = frames.get_color_frame();
 
@@ -108,7 +101,9 @@ void CameraRecorder::record() {
             ? color.get_frame_metadata(RS2_FRAME_METADATA_TIME_OF_ARRIVAL)
             : 0;
 
-        csv << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts << std::endl;
+        std::ostringstream row;
+        row << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
+        csv.write_line(row.str());
 
         const uint8_t* data = static_cast<const uint8_t*>(color.get_data());
 
@@ -131,6 +126,7 @@ void CameraRecorder::record() {
             std::cout << "Saved " << frame_count << " frames" << std::endl;
     }
 
+    csv.close();
     stop_writer();
     pipe.stop();
     std::cout << "\nDone. Saved " << frame_count << " frames to '" << output_dir_ << "/'" << std::endl;

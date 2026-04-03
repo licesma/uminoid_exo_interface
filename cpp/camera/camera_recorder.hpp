@@ -1,11 +1,12 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <queue>
-#include <thread>
-#include <mutex>
 #include <condition_variable>
+#include <functional>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <thread>
+#include <vector>
 
 constexpr int FRAME_WIDTH = 1920;
 constexpr int FRAME_HEIGHT = 1080;
@@ -23,7 +24,7 @@ public:
     CameraRecorder(const std::string& output_dir, int framerate, int save_batch_size = 30);
     ~CameraRecorder();
 
-    void record();
+    void collect_loop(const std::function<bool()>& stop_requested);
 
 private:
     void start_writer();

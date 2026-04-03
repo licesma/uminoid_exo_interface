@@ -100,27 +100,19 @@ add_executable(camera camera.cpp)
 target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera PRIVATE camera_recorder)
 
-add_executable(as5600_test as5600_test.cpp)
-target_include_directories(as5600_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(as5600_test PRIVATE upper_body_reader yaml-cpp)
-target_compile_definitions(as5600_test PRIVATE
-  AS5600_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
-)
-
-add_executable(dynamixel_test dynamixel_test.cpp)
-target_include_directories(dynamixel_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(dynamixel_test PRIVATE upper_body_reader yaml-cpp)
-target_compile_definitions(dynamixel_test PRIVATE
-  DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
-)
-
-add_executable(manus_test manus_test.cpp)
-target_include_directories(manus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(manus_test PRIVATE manus_reader)
-
-add_executable(inspire_test inspire_test.cpp)
-target_include_directories(inspire_test PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
+file(GLOB TEST_SOURCES test/*.cpp)
+foreach(test_source ${TEST_SOURCES})
+  get_filename_component(test_name ${test_source} NAME_WE)
+  add_executable(${test_name} ${test_source})
+  target_include_directories(${test_name} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
+  target_link_libraries(${test_name} PRIVATE upper_body_reader manus_reader yaml-cpp)
+  target_compile_definitions(${test_name} PRIVATE
+    AS5600_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+    DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
+  )
+endforeach()
 
 add_library(inspire_retargeter OBJECT hand_retarget/inspire/inspire_retargeter.cpp)
 target_include_directories(inspire_retargeter PUBLIC

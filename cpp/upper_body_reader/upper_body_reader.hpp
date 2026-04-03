@@ -7,6 +7,7 @@
 #include "constants.hpp"
 
 #include <array>
+#include <functional>
 #include <string>
 
 #ifndef AS5600_BOUNDS_PATH
@@ -46,6 +47,10 @@ class UpperBodyReader {
 
   void PrintRaw() const;
   UpperBodyReadings Eval() const;
+
+
+  void collect_loop(const std::string& recording_name,
+                    const std::function<bool()>& stop_requested);
 
   JointsReadingMetadata metadata;
   ArmReader left;

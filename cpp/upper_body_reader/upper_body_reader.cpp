@@ -4,9 +4,12 @@
 #include "arm_reader/dynamixel/dynamixel_arm.hpp"
 
 #include "../utils/circular_math.hpp"
+#include "../utils/repo_constants.hpp"
 #include "constants.hpp"
 
+#include <filesystem>
 #include <iostream>
+#include <thread>
 
 static G1JointReading invalidReading(G1JointIndex joint) {
   return {joint, -1, false};
@@ -47,6 +50,24 @@ void UpperBodyReader::PrintRaw() const {
   for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) out += p(right_data.data[i]);
   out += "\n";
   std::cout << out << std::flush;
+}
+
+void UpperBodyReader::collect_loop(
+    const std::string& recording_name,
+    const std::function<bool()>& stop_requested) {
+  const std::string dir =
+      repo_constants::DATA_DIR + "/" + recording_name;
+  std::filesystem::create_directories(dir);
+
+  std::thread left_thread([&] {
+    left.collect_loop(dir + "/left_arm.csv", stop_requested);
+  });
+  std::thread right_thread([&] {
+    right.collect_loop(dir + "/right_arm.csv", stop_requested);
+  });
+
+  left_thread.join();
+  right_thread.join();
 }
 
 UpperBodyReadings UpperBodyReader::Eval() const {

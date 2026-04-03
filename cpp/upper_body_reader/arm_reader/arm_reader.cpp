@@ -1,4 +1,7 @@
 #include "arm_reader.hpp"
+#include "utils/csv_saver.hpp"
+
+#include <string>
 
 ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm)
     : arm_(std::move(arm)), stopped_(!IsOk()) {
@@ -34,6 +37,33 @@ std::optional<ArmLine> ArmReader::wait_for_next() {
     return latest_;
   }
   return std::nullopt;
+}
+
+std::string ArmReader::csv_header() {
+  std::string h = "timestamp,host_timestamp";
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i)
+    h += ",joint_" + std::to_string(i);
+  return h;
+}
+
+std::string ArmReader::format_line(const ArmLine& line) {
+  std::string s = std::to_string(line.timestamp) + "," +
+                  std::to_string(line.host_timestamp);
+  for (const auto v : line.data) s += "," + std::to_string(v);
+  return s;
+}
+
+void ArmReader::collect_loop(const std::string& csv_path,
+                             const std::function<bool()>& stop_requested) {
+  CsvSaver csv(csv_path, csv_header());
+
+  while (!stop_requested()) {
+    auto reading = wait_for_next();
+    if (!reading) break;
+    csv.write_line(format_line(*reading));
+  }
+
+  csv.close();
 }
 
 void ArmReader::ReaderLoop() {

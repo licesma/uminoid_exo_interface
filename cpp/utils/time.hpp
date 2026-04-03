@@ -5,19 +5,15 @@
 
 class Time {
 public:
-    static void init() {
-        origin() = std::chrono::steady_clock::now();
-    }
-
-    static int64_t ts() {
+    static uint64_t ts() {
         return std::chrono::duration_cast<std::chrono::microseconds>(
             std::chrono::steady_clock::now() - origin()
         ).count();
     }
 
 private:
-    static std::chrono::steady_clock::time_point& origin() {
-        static std::chrono::steady_clock::time_point t;
+    static const std::chrono::steady_clock::time_point& origin() {
+        static const auto t = std::chrono::steady_clock::now();
         return t;
     }
 };

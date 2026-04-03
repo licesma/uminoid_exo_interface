@@ -1,10 +1,10 @@
 #include "dynamixel_arm.hpp"
+#include "utils/time.hpp"
 
 #include "group_fast_sync_read.h"
 #include "packet_handler.h"
 #include "port_handler.h"
 
-#include <chrono>
 #include <cstdio>
 
 DynamixelArm::DynamixelArm(const std::string& device, int baudrate) {
@@ -52,7 +52,6 @@ std::optional<ArmLine> DynamixelArm::GetNextLine() {
   if (!ok_ || !running_.load()) return std::nullopt;
 
   int result = group_sync_read_->txRxPacket();
-  auto host_clock = std::chrono::steady_clock::now();
   if (result != COMM_SUCCESS) {
     return std::nullopt;
   }
@@ -74,8 +73,5 @@ std::optional<ArmLine> DynamixelArm::GetNextLine() {
     data[i] = static_cast<uint16_t>(pos & 0x0FFF);
   }
 
-  uint64_t host_ts = std::chrono::duration_cast<std::chrono::microseconds>(
-                         host_clock.time_since_epoch())
-                         .count();
-  return ArmLine{*timestamp_ms, host_ts, data};
+  return ArmLine{*timestamp_ms, Time::ts(), data};
 }

@@ -1,9 +1,9 @@
 #include "as5600_arm.hpp"
 #include "../../constants.hpp"
+#include "utils/time.hpp"
 
 #include <array>
 #include <cstdint>
-#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
@@ -107,8 +107,6 @@ std::optional<ArmLine> AS5600Arm::GetNextLine() {
       total += static_cast<size_t>(n);
     }
 
-    auto host_clock = std::chrono::steady_clock::now();
-
     // CRC covers timestamp + values (bytes 2..37, 36 bytes)
     uint16_t expected_crc;
     std::memcpy(&expected_crc, &buf[38], sizeof(uint16_t));
@@ -117,18 +115,13 @@ std::optional<ArmLine> AS5600Arm::GetNextLine() {
     uint64_t timestamp;
     std::memcpy(&timestamp, &buf[2], sizeof(uint64_t));
 
-    uint64_t host_ts = std::chrono::duration_cast<std::chrono::microseconds>(
-                           host_clock.time_since_epoch())
-                           .count();
-
-    // Extract only this arm's joints
     std::array<uint16_t, ARM_JOINT_COUNT> jointData;
     for (size_t j = 0; j < ARM_JOINT_COUNT; ++j) {
       uint16_t val;
       std::memcpy(&val, &buf[10 + (joint_offset_ + j) * 2], sizeof(uint16_t));
       jointData[j] = val;
     }
-    return ArmLine{timestamp, host_ts, jointData};
+    return ArmLine{timestamp, Time::ts(), jointData};
   }
   return std::nullopt;
 }

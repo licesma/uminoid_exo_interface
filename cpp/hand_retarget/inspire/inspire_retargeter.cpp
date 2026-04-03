@@ -7,10 +7,7 @@
 #include "utils/type.hpp"
 
 #include <algorithm>
-#include <filesystem>
-#include <stdexcept>
 #include <optional>
-#include <thread>
 
 namespace {
 
@@ -20,20 +17,17 @@ std::string csv_header() {
            "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
 }
 
-void write_line(std::ofstream& f, int64_t timestamp,
-                const opt<InspirePose>& left,
-                const opt<InspirePose>& right) {
-    f << timestamp;
-    if(left)
-        for (int i = 0; i < 6; ++i) f << "," << (*left)(i);
-    else
-        for (int i = 0; i < 6; ++i) f << "," << "null";
-
-    if(right)
-        for (int i = 0; i < 6; ++i) f << "," << (*right)(i);
-    else
-        for (int i = 0; i < 6; ++i) f << "," << "null";
-    f << "\n";
+std::string format_line(int64_t timestamp,
+                        const opt<InspirePose>& left,
+                        const opt<InspirePose>& right) {
+    std::string s = std::to_string(timestamp);
+    auto append_pose = [&](const opt<InspirePose>& p) {
+        for (int i = 0; i < 6; ++i)
+            s += p ? ("," + std::to_string((*p)(i))) : ",null";
+    };
+    append_pose(left);
+    append_pose(right);
+    return s;
 }
 
 }  // namespace
@@ -58,21 +52,14 @@ double InspireRetargeter::scale(float value, double low, double high) {
     return std::clamp((value - low) / (high - low), 0.0, 1.0);
 }
 
-std::ofstream InspireRetargeter::get_recording_csv(const std::string& recording_name) {
+CsvSaver InspireRetargeter::make_recording_csv(const std::string& recording_name) {
     if (recording_name.empty()) {
         return {};
     }
 
-    const std::string data_dir = repo_constants::DATA_DIR;
-    const std::string csv_path = data_dir + "/" + recording_name + "_hands.csv";
-    std::ofstream csv(csv_path);
-
-    if (!csv) {
-        throw std::runtime_error("Failed to open CSV file: " + csv_path);
-    }
-
-    csv << csv_header() << "\n";
-    return csv;
+    const std::string csv_path =
+        repo_constants::DATA_DIR + "/" + recording_name + "_hands.csv";
+    return CsvSaver(csv_path, csv_header());
 }
 
 InspireRetargeter::HandBounds InspireRetargeter::load_bounds(const YAML::Node& node) {
@@ -83,42 +70,6 @@ InspireRetargeter::HandBounds InspireRetargeter::load_bounds(const YAML::Node& n
     b.pinky  = {node["pinky"]["low"].as<double>(),  node["pinky"]["high"].as<double>()};
     b.thumb  = {node["thumb"]["low"].as<double>(),  node["thumb"]["high"].as<double>()};
     return b;
-}
-
-void InspireRetargeter::record_loop(const std::string& recording_name) {
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex_);
-        queued_samples_.clear();
-        writer_done_ = false;
-    }
-
-    hand_csv_ = get_recording_csv(recording_name);
-    uint64_t logged_count = 0;
-
-    while (true) {
-        std::deque<LoggedHandSample> batch;
-        {
-            std::unique_lock<std::mutex> lock(queue_mutex_);
-            queue_cv_.wait(lock, [&] {
-                return writer_done_ || !queued_samples_.empty();
-            });
-            batch.swap(queued_samples_);
-            if (writer_done_ && batch.empty()) {
-                break;
-            }
-        }
-
-        for (const auto& sample : batch) {
-                write_line(hand_csv_, sample.hand_timestamp, sample.left_target , sample.right_target);
-                if (++logged_count % 1000 == 0) {
-                    hand_csv_.flush();
-                }
-        }
-    }
-
-    hand_csv_.flush();
-    hand_csv_.close();
-
 }
 
 opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSide side) const {
@@ -142,12 +93,7 @@ void InspireRetargeter::retarget_loop(
     const std::function<bool()>& stop_requested,
     const std::string& recording_name
 ) {
-    std::thread writer_thread;
-    const bool recording_enabled = !recording_name.empty();
-
-    if (recording_enabled) {
-        writer_thread = std::thread(&InspireRetargeter::record_loop, this, recording_name);
-    }
+    hand_csv_ = make_recording_csv(recording_name);
 
     while (auto pose = manus.wait_for_next(stop_requested)) {
         auto& [left, right] = *pose;
@@ -158,19 +104,11 @@ void InspireRetargeter::retarget_loop(
         left_target && left_hand_.SetPosition(*left_target);
         right_target && right_hand_.SetPosition(*right_target);
 
-        if (recording_enabled) {
-            std::lock_guard<std::mutex> lock(queue_mutex_);
-            queued_samples_.push_back({Time::ts(), left_target, right_target});
-            queue_cv_.notify_one();
+        if (hand_csv_) {
+            hand_csv_.write_line(
+                format_line(Time::ts(), left_target, right_target));
         }
     }
 
-    if (writer_thread.joinable()) {
-        {
-            std::lock_guard<std::mutex> lock(queue_mutex_);
-            writer_done_ = true;
-        }
-        queue_cv_.notify_one();
-        writer_thread.join();
-    }
+    hand_csv_.close();
 }

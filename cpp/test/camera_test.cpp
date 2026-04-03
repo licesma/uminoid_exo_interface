@@ -1,12 +1,18 @@
 #include "camera/camera_recorder.hpp"
 
+#include <csignal>
 #include <iostream>
 #include <librealsense2/rs.hpp>
 
+static volatile sig_atomic_t running = 1;
+static void sigint_handler(int) { running = 0; }
+
 int main() try
 {
+    std::signal(SIGINT, sigint_handler);
+
     CameraRecorder recorder("color_frames", 30);
-    recorder.record();
+    recorder.collect_loop([] { return !running; });
     return EXIT_SUCCESS;
 }
 catch (const rs2::error& e)

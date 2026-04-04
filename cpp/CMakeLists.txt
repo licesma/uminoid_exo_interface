@@ -96,13 +96,15 @@ target_compile_definitions(teleoperate PRIVATE
   CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml"
 )
 
-add_executable(camera camera.cpp)
-target_include_directories(camera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(camera PRIVATE camera_recorder)
 
 file(GLOB TEST_SOURCES test/*.cpp)
+# DDS-based tests that link against unitree_sdk2 instead of the default test deps
+set(DDS_TESTS inspire_g1_test)
 foreach(test_source ${TEST_SOURCES})
   get_filename_component(test_name ${test_source} NAME_WE)
+  if(${test_name} IN_LIST DDS_TESTS)
+    continue()
+  endif()
   add_executable(${test_name} ${test_source})
   target_include_directories(${test_name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -113,6 +115,10 @@ foreach(test_source ${TEST_SOURCES})
     DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
   )
 endforeach()
+
+# DDS-based inspire hand test (communicates via G1 DDS topics)
+add_executable(inspire_g1_test test/inspire_g1_test.cpp)
+target_link_libraries(inspire_g1_test PRIVATE unitree_sdk2)
 
 add_library(inspire_retargeter OBJECT hand_retarget/inspire/inspire_retargeter.cpp)
 target_include_directories(inspire_retargeter PUBLIC
@@ -127,11 +133,4 @@ target_compile_definitions(manus_to_inspire PRIVATE
   BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hand_retarget/inspire/inspire_retarget_bounds.yaml"
 )
 
-add_executable(dynamixel_collect dynamixel_collect.cpp)
-target_include_directories(dynamixel_collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(dynamixel_collect PRIVATE upper_body_reader yaml-cpp)
-target_compile_definitions(dynamixel_collect PRIVATE
-  DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
-  PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/.."
-)
 

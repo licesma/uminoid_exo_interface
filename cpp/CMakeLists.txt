@@ -99,7 +99,7 @@ target_compile_definitions(teleoperate PRIVATE
 
 file(GLOB TEST_SOURCES test/*.cpp)
 # DDS-based tests that link against unitree_sdk2 instead of the default test deps
-set(DDS_TESTS inspire_g1_test)
+set(DDS_TESTS inspire_g1_test retarget_test)
 foreach(test_source ${TEST_SOURCES})
   get_filename_component(test_name ${test_source} NAME_WE)
   if(${test_name} IN_LIST DDS_TESTS)
@@ -115,6 +115,13 @@ foreach(test_source ${TEST_SOURCES})
     DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
   )
 endforeach()
+
+add_executable(retarget_test test/retarget_test.cpp)
+target_include_directories(retarget_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(retarget_test PRIVATE inspire_retargeter manus_reader)
+target_compile_definitions(retarget_test PRIVATE
+  BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hand_retarget/inspire/inspire_retarget_bounds.yaml"
+)
 
 # DDS-based inspire hand test (communicates via G1 DDS topics)
 add_executable(inspire_g1_test test/inspire_g1_test.cpp)

@@ -45,7 +45,7 @@ class DynamixelArm : public SkeletonArm {
       (ADDR_PRESENT_POSITION + LEN_PRESENT_POSITION) - ADDR_REALTIME_TICK;
 
   static constexpr float PROTOCOL_VERSION = 2.0;
-  static constexpr uint8_t DXL_IDS[] = {1, 2, 3, 4, 5, 6, 7};
+  static constexpr uint8_t DXL_IDS[] = {0, 1, 2, 3, 4, 5, 6};
 
   dynamixel::PortHandler* port_handler_{nullptr};
   dynamixel::PacketHandler* packet_handler_{nullptr};

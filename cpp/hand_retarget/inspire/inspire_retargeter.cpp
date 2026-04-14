@@ -58,18 +58,15 @@ InspireRetargeter::InspireRetargeter(
 
     left_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
     right_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
+
+    const std::string dir = repo_constants::DATA_DIR + "/" + recording_label_;
+    hand_csv_ = CsvSaver(dir + "/inspire_hand.csv", csv_header());
 }
 
 double InspireRetargeter::scale(float value, double low, double high) {
     return std::clamp((value - low) / (high - low), 0.0, 1.0);
 }
 
-CsvSaver InspireRetargeter::make_recording_csv(int collection_id) const {
-    const std::string csv_path =
-        repo_constants::DATA_DIR + "/" + recording_label_ + "/inspire_hand.csv";
-    std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label_);
-    return CsvSaver(csv_path, csv_header());
-}
 
 InspireRetargeter::HandBounds InspireRetargeter::load_bounds(const YAML::Node& node) {
     HandBounds b;
@@ -101,7 +98,6 @@ void InspireRetargeter::retarget_loop(
     const std::function<int()>& collection_id,
     const std::function<bool()>& stop
 ) {
-    hand_csv_ = make_recording_csv(collection_id());
 
     while (auto pose = manus_.wait_for_next(stop)) {
         auto& [left, right] = *pose;

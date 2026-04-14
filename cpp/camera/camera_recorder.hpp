@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+#include "utils/csv_saver.hpp"
+
 constexpr int FRAME_WIDTH = 1920;
 constexpr int FRAME_HEIGHT = 1080;
 constexpr int FRAME_BYTES_PER_PIXEL = 3; // RGB8
@@ -33,6 +35,7 @@ private:
     void stop_writer();
 
     std::string output_dir_;
+    CsvSaver csv_;
     int framerate;
     int save_batch_size_;
 

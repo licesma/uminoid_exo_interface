@@ -1,10 +1,11 @@
 #include "arm_reader.hpp"
-#include "utils/csv_saver.hpp"
 
 #include <string>
 
-ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm)
-    : arm_(std::move(arm)), stopped_(!IsOk()) {
+ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm, const std::string& csv_path)
+    : arm_(std::move(arm)),
+      csv_(csv_path.empty() ? CsvSaver{} : CsvSaver(csv_path, csv_header())),
+      stopped_(!IsOk()) {
   if (!stopped_)
     thread_ = std::thread(&ArmReader::ReaderLoop, this);
 }
@@ -54,18 +55,15 @@ std::string ArmReader::format_line(int collection_id, const ArmLine& line) {
   return s;
 }
 
-void ArmReader::collect_loop(const std::string& csv_path,
-                             const std::function<int()>& collection_id,
+void ArmReader::collect_loop(const std::function<int()>& collection_id,
                              const std::function<bool()>& stop) {
-  CsvSaver csv(csv_path, csv_header());
-
   while (!stop()) {
     auto reading = wait_for_next();
     if (!reading) break;
-    csv.write_line(format_line(collection_id(), *reading));
+    csv_.write_line(format_line(collection_id(), *reading));
   }
 
-  csv.close();
+  csv_.close();
 }
 
 void ArmReader::ReaderLoop() {

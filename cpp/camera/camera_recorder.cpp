@@ -1,6 +1,5 @@
 #include "camera_recorder.hpp"
 
-#include "utils/csv_saver.hpp"
 #include "utils/repo_constants.hpp"
 
 #include <librealsense2/rs.hpp>
@@ -13,7 +12,10 @@
 #include "utils/stb_image_write.h"
 
 CameraRecorder::CameraRecorder(const std::string& recording_label, int framerate, int save_batch_size)
-    : output_dir_(repo_constants::DATA_DIR + "/" + recording_label), framerate(framerate), save_batch_size_(save_batch_size) {
+    : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
+      csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms"),
+      framerate(framerate),
+      save_batch_size_(save_batch_size) {
     batch_.reserve(save_batch_size_);
 }
 
@@ -84,9 +86,6 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
     //"Warming up camera (30 frames)
     for (int i = 0; i < 30; ++i) pipe.wait_for_frames();
 
-    CsvSaver csv(output_dir_ + "/camera.csv",
-                 "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms");
-
     start_writer();
 
     int frame_count = 0;
@@ -104,7 +103,7 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
 
         std::ostringstream row;
         row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
-        csv.write_line(row.str());
+        csv_.write_line(row.str());
 
         const uint8_t* data = static_cast<const uint8_t*>(color.get_data());
 
@@ -124,7 +123,7 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
             flush_batch();
     }
 
-    csv.close();
+    csv_.close();
     stop_writer();
     pipe.stop();
 }

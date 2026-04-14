@@ -37,7 +37,6 @@ private:
     };
 
     static double scale(float value, double low, double high);
-    CsvSaver make_recording_csv(int collection_id) const;
     static HandBounds load_bounds(const YAML::Node& node);
 
     HandBounds left_bounds_;

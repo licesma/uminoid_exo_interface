@@ -20,8 +20,10 @@ UpperBodyReader::UpperBodyReader(const std::string& relay_address,
                                  const std::string& recording_label,
                                  double default_value)
     : metadata(LoadMetadata(AS5600_BOUNDS_PATH)),
-      left(std::make_unique<AS5600Arm>(relay_address, 0)),
-      right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)),
+      left(std::make_unique<AS5600Arm>(relay_address, 0),
+           repo_constants::DATA_DIR + "/" + recording_label + "/left_arm.csv"),
+      right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT),
+            repo_constants::DATA_DIR + "/" + recording_label + "/right_arm.csv"),
       recording_label_(recording_label),
       bounds_(LoadBounds(AS5600_BOUNDS_PATH)) {}
 
@@ -30,8 +32,10 @@ UpperBodyReader::UpperBodyReader(const std::string& left_device,
                                  int baudrate,
                                  const std::string& recording_label)
     : metadata(LoadMetadata(DYNAMIXEL_BOUNDS_PATH)),
-      left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate)),
-      right(right_device.empty() ? nullptr : std::make_unique<DynamixelArm>(right_device, baudrate)),
+      left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate),
+           repo_constants::DATA_DIR + "/" + recording_label + "/left_arm.csv"),
+      right(right_device.empty() ? nullptr : std::make_unique<DynamixelArm>(right_device, baudrate),
+            repo_constants::DATA_DIR + "/" + recording_label + "/right_arm.csv"),
       recording_label_(recording_label),
       bounds_(LoadBounds(DYNAMIXEL_BOUNDS_PATH)) {}
 
@@ -60,14 +64,11 @@ void UpperBodyReader::PrintRaw() const {
 void UpperBodyReader::collect_loop(
     const std::function<int()>& collection_id,
     const std::function<bool()>& stop) {
-  const std::string dir =
-      repo_constants::DATA_DIR + "/" + recording_label_;
-
   std::thread left_thread([&] {
-    left.collect_loop(dir + "/left_arm.csv", collection_id, stop);
+    left.collect_loop(collection_id, stop);
   });
   std::thread right_thread([&] {
-    right.collect_loop(dir + "/right_arm.csv", collection_id, stop);
+    right.collect_loop(collection_id, stop);
   });
 
   left_thread.join();

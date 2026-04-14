@@ -46,6 +46,9 @@ InspireRetargeter::InspireRetargeter(
     YAML::Node config = YAML::LoadFile(bounds_path);
     left_bounds_  = load_bounds(config["left"]);
     right_bounds_ = load_bounds(config["right"]);
+
+    left_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
+    right_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
 }
 
 double InspireRetargeter::scale(float value, double low, double high) {

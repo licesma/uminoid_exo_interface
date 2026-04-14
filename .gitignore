@@ -2,3 +2,4 @@ cpp/build/
 cpp/.cache/
 .clangd
 .vscode
+__pycache__/

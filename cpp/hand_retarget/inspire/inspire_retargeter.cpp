@@ -7,9 +7,16 @@
 #include "utils/type.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <optional>
 
 namespace {
+
+static const std::string BOUNDS_PATH =
+    (std::filesystem::path(__FILE__).parent_path() / "inspire_retarget_bounds.yaml")
+        .lexically_normal()
+        .string();
+
 
 std::string csv_header() {
     return "timestamp,"
@@ -35,7 +42,6 @@ std::string format_line(int64_t timestamp,
 InspireRetargeter::InspireRetargeter(
     const std::string& left_device,
     const std::string& right_device,
-    const std::string& bounds_path,
     uint8_t id
 )
     : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200)),
@@ -43,7 +49,7 @@ InspireRetargeter::InspireRetargeter(
       left_hand_(left_serial_, id),
       right_hand_(right_serial_, id)
 {
-    YAML::Node config = YAML::LoadFile(bounds_path);
+    YAML::Node config = YAML::LoadFile(BOUNDS_PATH);
     left_bounds_  = load_bounds(config["left"]);
     right_bounds_ = load_bounds(config["right"]);
 

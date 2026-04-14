@@ -22,7 +22,6 @@ public:
     InspireRetargeter(
         const std::string& left_device,
         const std::string& right_device,
-        const std::string& bounds_path,
         uint8_t id = 1
     );
 

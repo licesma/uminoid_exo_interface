@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     const std::string right_device = argc > 2 ? argv[2] : "/dev/ttyUSB2";
     const std::string recording_name = argc > 3 ? argv[3] : "";
 
-    InspireRetargeter inspire(left_device, right_device, BOUNDS_PATH);
+    InspireRetargeter inspire(left_device, right_device);
     ManusReader manus;
 
     std::signal(SIGINT, signal_handler);

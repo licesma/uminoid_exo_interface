@@ -18,7 +18,7 @@ except ImportError:
 
 PROTOCOL_VERSION = 2.0
 BAUDRATE = 1_000_000
-DXL_IDS = tuple(range(1, 8))
+DXL_IDS = tuple(range(0, 7))
 DXL_POSITION_MODULUS = 4096
 UNAVAILABLE_VALUE = 5000
 

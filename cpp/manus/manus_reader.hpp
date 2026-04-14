@@ -11,13 +11,18 @@
 
 #include "manus_hand.hpp"
 
+namespace manus_defaults {
+    inline const std::string LEFT_ADDRESS  = "tcp://localhost:8002";
+    inline const std::string RIGHT_ADDRESS = "tcp://localhost:8003";
+}
+
 class ManusReader {
 public:
     using ManusPose = std::pair<std::optional<ManusHand>, std::optional<ManusHand>>;
 
     ManusReader(
-        const std::string& left_address  = "tcp://localhost:8002",
-        const std::string& right_address = "tcp://localhost:8003"
+        const std::string& left_address  = manus_defaults::LEFT_ADDRESS,
+        const std::string& right_address = manus_defaults::RIGHT_ADDRESS
     );
     ~ManusReader();
 

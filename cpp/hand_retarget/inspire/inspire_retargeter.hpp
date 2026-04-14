@@ -2,7 +2,7 @@
 
 #include "inspire.h"
 #include "SerialPort.h"
-#include "manus/manus_hand.hpp"
+#include "manus/manus_reader.hpp"
 
 #include <cstdint>
 #include <eigen3/Eigen/Dense>
@@ -15,8 +15,6 @@
 
 using InspirePose = Eigen::Matrix<double, 6, 1>;
 
-class ManusReader;
-
 class InspireRetargeter {
 public:
     InspireRetargeter(
@@ -26,7 +24,6 @@ public:
     );
 
     void retarget_loop(
-        ManusReader& reader,
         const std::function<bool()>& stop_requested,
         const std::string& recording_name = ""
     );
@@ -48,5 +45,6 @@ private:
     SerialPort::SharedPtr right_serial_;
     inspire::InspireHand left_hand_;
     inspire::InspireHand right_hand_;
+    ManusReader manus_;
     CsvSaver hand_csv_;
 };

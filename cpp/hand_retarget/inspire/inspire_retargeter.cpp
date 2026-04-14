@@ -1,6 +1,5 @@
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
 #include "manus/manus_hand.hpp"
-#include "manus/manus_reader.hpp"
 #include "utils/repo_constants.hpp"
 
 #include "utils/time.hpp"
@@ -47,7 +46,8 @@ InspireRetargeter::InspireRetargeter(
     : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200)),
       right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200)),
       left_hand_(left_serial_, id),
-      right_hand_(right_serial_, id)
+      right_hand_(right_serial_, id),
+      manus_()
 {
     YAML::Node config = YAML::LoadFile(BOUNDS_PATH);
     left_bounds_  = load_bounds(config["left"]);
@@ -98,13 +98,12 @@ opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSid
 }
 
 void InspireRetargeter::retarget_loop(
-    ManusReader& manus,
     const std::function<bool()>& stop_requested,
     const std::string& recording_name
 ) {
     hand_csv_ = make_recording_csv(recording_name);
 
-    while (auto pose = manus.wait_for_next(stop_requested)) {
+    while (auto pose = manus_.wait_for_next(stop_requested)) {
         auto& [left, right] = *pose;
 
         opt<InspirePose> left_target  = retarget(*left,  HandSide::LEFT);

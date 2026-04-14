@@ -1,56 +1,70 @@
 left_elbow:
-  aligned_with_robot: true
-  lower: 2.356194490192345
-  upper: -0.5414952181236314
+  correct_boundary: lower
+  direction_aligned: true
+  lower: 2.8593401886188348
+  upper: -0.28071848418307255
 left_shoulder_pitch:
-  aligned_with_robot: false
-  lower: 2.3086410857678903
-  upper: -2.356194490192345
+  correct_boundary: lower
+  direction_aligned: true
+  lower: 0.8145437983672754
+  upper: -0.710233104791052
 left_shoulder_roll:
-  aligned_with_robot: false
-  lower: 3.0710295373470533
-  upper: -0.5645049299419158
+  correct_boundary: upper
+  direction_aligned: true
+  lower: -1.2532623037025687
+  upper: 1.4664856332186726
 left_shoulder_yaw:
-  aligned_with_robot: true
-  lower: 1.7794177139473435
-  upper: 0.7255729126699082
+  correct_boundary: lower
+  direction_aligned: false
+  lower: -0.2761165418194156
+  upper: -1.3238254199453083
 left_wrist_pitch:
-  aligned_with_robot: false
-  lower: 1.4296700943094178
-  upper: -1.6659031356438063
+  correct_boundary: lower
+  direction_aligned: true
+  lower: -0.8298836062461317
+  upper: 1.9282138503722512
 left_wrist_roll:
-  aligned_with_robot: false
-  lower: -0.8513593372765307
-  upper: 3.038815940801455
+  correct_boundary: lower
+  direction_aligned: true
+  lower: 1.9358837543116794
+  upper: -0.4049709280018092
 left_wrist_yaw:
-  aligned_with_robot: false
-  lower: 2.9222334009221465
-  upper: -1.8960002538266525
+  correct_boundary: lower
+  direction_aligned: true
+  lower: -0.8620972027917304
+  upper: 2.2794954507980627
 right_elbow:
-  aligned_with_robot: false
-  lower: -1.0473
-  upper: 2.0944
+  correct_boundary: lower
+  direction_aligned: false
+  lower: -1.3238254199453083
+  upper: 1.8300390799475696
 right_shoulder_pitch:
-  aligned_with_robot: false
-  lower: -3.0892
-  upper: 2.6704
+  correct_boundary: upper
+  direction_aligned: false
+  lower: -1.2839419194602817
+  upper: -2.416019740919885
 right_shoulder_roll:
-  aligned_with_robot: false
-  lower: -2.2515
-  upper: 1.5882
+  correct_boundary: lower
+  direction_aligned: true
+  lower: 1.6751070203711205
+  upper: -1.8913983114629955
 right_shoulder_yaw:
-  aligned_with_robot: false
-  lower: -2.618
-  upper: 2.618
+  correct_boundary: lower
+  direction_aligned: false
+  lower: 1.2977477465512521
+  upper: 0.2485048876374738
 right_wrist_pitch:
-  aligned_with_robot: false
-  lower: -1.614429558
-  upper: 1.614429558
+  correct_boundary: lower
+  direction_aligned: false
+  lower: -0.653475815639283
+  upper: 2.3853401251621724
 right_wrist_roll:
-  aligned_with_robot: false
-  lower: -1.972222054
-  upper: 1.972222054
+  correct_boundary: lower
+  direction_aligned: true
+  lower: -2.771903283709354
+  upper: 1.1796312258840578
 right_wrist_yaw:
-  aligned_with_robot: false
-  lower: -1.614429558
-  upper: 1.614429558
+  correct_boundary: lower
+  direction_aligned: true
+  lower: -0.7669903939428204
+  upper: 2.5740197620721057

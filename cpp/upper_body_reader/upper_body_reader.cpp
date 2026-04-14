@@ -6,6 +6,7 @@
 #include "../utils/circular_math.hpp"
 #include "../utils/repo_constants.hpp"
 #include "constants.hpp"
+#include "utils/metadata_loader.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -73,14 +74,13 @@ void UpperBodyReader::collect_loop(
 UpperBodyReadings UpperBodyReader::Eval() const {
   const auto left_data = left.Snapshot();
   const auto right_data = right.Snapshot();
-
   std::array<uint16_t, JOINT_COUNT> combined{};
   for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
     combined[i] = left_data.data[i];
     combined[ARM_JOINT_COUNT + i] = right_data.data[i];
   }
 
-  auto getReadingValue = [&bounds = bounds_, &combined](ExoIndex j) {
+  auto getReadingValue = [this, &bounds = bounds_, &combined](ExoIndex j) {
     int exoIdx = static_cast<int>(j);
     G1JointIndex g1Idx = getG1JointIndex(j);
     auto [lower, upper] = bounds[g1Idx];
@@ -91,7 +91,12 @@ UpperBodyReadings UpperBodyReader::Eval() const {
 
     if (circularDistance(upper, lower) < circularDistance(value, lower))
       return invalidReading(g1Idx);
-    return G1JointReading{g1Idx, circularDistance(value, lower), true};
+
+    double net_angle = metadata[g1Idx].skeleton_ref == LOWER_BOUND
+                           ? circularDistance(value, lower)
+                           : circularDistance(upper, value);
+
+    return G1JointReading{g1Idx, net_angle, true};
   };
 
   UpperBodyReadings joint_values;

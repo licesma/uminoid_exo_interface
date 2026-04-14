@@ -18,6 +18,7 @@ class G1Controller : public G1Robot {
   std::unique_ptr<UpperBodyReader> joint_reader_;
   JointBounds bounds_;
   double toG1Angle(G1JointReading reading);
+  double getReference(G1JointIndex joint);
 
  public:
   G1Controller(std::string networkInterface,

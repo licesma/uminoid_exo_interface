@@ -1,4 +1,6 @@
 #include "g1Controller.hpp"
+#include "g1/model/g1Enums.hpp"
+#include "utils/metadata_loader.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -45,23 +47,31 @@ void printDebug(UpperBodyReadings exo){
 double G1Controller::toG1Angle(G1JointReading reading){
   auto [joint, netAngle, is_valid_] = reading;
   auto [low, high] = bounds_[joint];
-  ReadingMetadata metadata = joint_reader_->metadata[joint];
-  std::cout<<"["<<low<<", "<<high<<"]"<<std::endl;
-  std::cout<<"Aligned:"<<metadata.alignedWithRobot<<std::endl;
+  ReadingMetadata md = joint_reader_->metadata[joint];
 
-  double value = metadata.alignedWithRobot ? low + netAngle : high - netAngle;
+  double reference = md.g1_ref == LOWER_BOUND ? low : high;
+  double direction = md.g1_ref == LOWER_BOUND ? 1.0 : -1.0;
+
+  double value = reference + direction * netAngle;
   return std::clamp(value, low, high);
 }
 
-static bool isInLeftArm(G1JointIndex joint){
+static bool isInUpperBody(G1JointIndex joint){
   bool res = false;
-  //res |= joint == G1JointIndex::LeftShoulderPitch;
-  //res |= joint == G1JointIndex::LeftShoulderRoll;
-  //res |= joint == G1JointIndex::LeftShoulderYaw;
+  res |= joint == G1JointIndex::LeftShoulderPitch;
+  res |= joint == G1JointIndex::LeftShoulderRoll;
+  res |= joint == G1JointIndex::LeftShoulderYaw;
   res |= joint == G1JointIndex::LeftElbow;
-  //res |= joint == G1JointIndex::LeftWristPitch;
-  //res |= joint == G1JointIndex::LeftWristRoll;
-  //res |= joint == G1JointIndex::LeftWristYaw;
+  res |= joint == G1JointIndex::LeftWristPitch;
+  res |= joint == G1JointIndex::LeftWristRoll;
+  res |= joint == G1JointIndex::LeftWristYaw;
+  res |= joint == G1JointIndex::RightShoulderPitch;
+  res |= joint == G1JointIndex::RightShoulderRoll;
+  res |= joint == G1JointIndex::RightShoulderYaw;
+  res |= joint == G1JointIndex::RightElbow;
+  res |= joint == G1JointIndex::RightWristRoll;
+  res |= joint == G1JointIndex::RightWristPitch;
+  res |= joint == G1JointIndex::RightWristYaw;
   return res;
 }
 
@@ -93,8 +103,8 @@ void G1Controller::Control() {
   const UpperBodyReadings upper_readings = joint_reader_->Eval();
   const double max_step = max_target_velocity_ * control_dt_;
   for (const auto& reading : upper_readings) {
-    if (reading.is_valid && isInLeftArm(reading.joint)) {
-      const int joint_index = static_cast<int>(reading.joint);
+    const int joint_index = static_cast<int>(reading.joint);
+    if (reading.is_valid && isInUpperBody(reading.joint)) {
       const double desired_target = toG1Angle(reading);
 
       commanded_targets_.at(joint_index) += std::clamp(

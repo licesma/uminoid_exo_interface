@@ -6,15 +6,26 @@
 #include <string>
 #include <yaml-cpp/yaml.h>
 
+
+enum JointBoundType {
+  LOWER_BOUND = 0,
+  UPPER_BOUND = 1
+};
+
+inline JointBoundType operator!(JointBoundType ref) {
+  return ref == LOWER_BOUND ? UPPER_BOUND : LOWER_BOUND;
+}
+
 struct ReadingMetadata {
-  bool alignedWithRobot;
+  JointBoundType skeleton_ref;
+  JointBoundType g1_ref;
 };
 
 struct JointsReadingMetadata {
-  std::array<ReadingMetadata, G1_NUM_MOTOR> aligned_with_robot{};
+  std::array<ReadingMetadata, G1_NUM_MOTOR> correct_bound{};
 
-  ReadingMetadata& operator[](G1JointIndex idx) { return aligned_with_robot[idx]; }
-  const ReadingMetadata& operator[](G1JointIndex idx) const { return aligned_with_robot[idx]; }
+  ReadingMetadata& operator[](G1JointIndex idx) { return correct_bound[idx]; }
+  const ReadingMetadata& operator[](G1JointIndex idx) const { return correct_bound[idx]; }
 };
 
 /** Load per-joint metadata from a YAML file (e.g. as5600_bounds.yaml). */
@@ -23,8 +34,10 @@ inline JointsReadingMetadata LoadMetadata(const std::string& path) {
     YAML::Node config = YAML::LoadFile(path);
 
     auto getMetadata = [&config](const char* joint) -> ReadingMetadata {
-      bool alignedWithRobot = config[joint]["aligned_with_robot"].as<bool>();
-      return {alignedWithRobot};
+      std::string ref_val =  config[joint]["correct_boundary"].as<std::string>();
+      bool align_val = config[joint]["direction_aligned"].as<bool>();
+      JointBoundType skeleton_ref = ref_val == "lower" ? LOWER_BOUND : UPPER_BOUND;
+      return {skeleton_ref, align_val ? skeleton_ref : !skeleton_ref };
     };
 
     JointsReadingMetadata meta;

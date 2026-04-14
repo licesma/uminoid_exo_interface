@@ -17,18 +17,22 @@ static G1JointReading invalidReading(G1JointIndex joint) {
 }
 
 UpperBodyReader::UpperBodyReader(const std::string& relay_address,
+                                 const std::string& recording_label,
                                  double default_value)
     : metadata(LoadMetadata(AS5600_BOUNDS_PATH)),
       left(std::make_unique<AS5600Arm>(relay_address, 0)),
       right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)),
+      recording_label_(recording_label),
       bounds_(LoadBounds(AS5600_BOUNDS_PATH)) {}
 
 UpperBodyReader::UpperBodyReader(const std::string& left_device,
                                  const std::string& right_device,
-                                 int baudrate)
+                                 int baudrate,
+                                 const std::string& recording_label)
     : metadata(LoadMetadata(DYNAMIXEL_BOUNDS_PATH)),
       left(left_device.empty() ? nullptr : std::make_unique<DynamixelArm>(left_device, baudrate)),
       right(right_device.empty() ? nullptr : std::make_unique<DynamixelArm>(right_device, baudrate)),
+      recording_label_(recording_label),
       bounds_(LoadBounds(DYNAMIXEL_BOUNDS_PATH)) {}
 
 void UpperBodyReader::PrintRaw() const {
@@ -54,17 +58,16 @@ void UpperBodyReader::PrintRaw() const {
 }
 
 void UpperBodyReader::collect_loop(
-    const std::string& recording_name,
+    const std::string& collection_id,
     const std::function<bool()>& stop_requested) {
   const std::string dir =
-      repo_constants::DATA_DIR + "/" + recording_name;
-  std::filesystem::create_directories(dir);
+      repo_constants::DATA_DIR + "/" + recording_label_;
 
   std::thread left_thread([&] {
-    left.collect_loop(dir + "/left_arm.csv", stop_requested);
+    left.collect_loop(dir + "/left_arm.csv", collection_id, stop_requested);
   });
   std::thread right_thread([&] {
-    right.collect_loop(dir + "/right_arm.csv", stop_requested);
+    right.collect_loop(dir + "/right_arm.csv", collection_id, stop_requested);
   });
 
   left_thread.join();

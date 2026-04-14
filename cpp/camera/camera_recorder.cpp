@@ -1,6 +1,7 @@
 #include "camera_recorder.hpp"
 
 #include "utils/csv_saver.hpp"
+#include "utils/repo_constants.hpp"
 
 #include <librealsense2/rs.hpp>
 
@@ -11,8 +12,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "utils/stb_image_write.h"
 
-CameraRecorder::CameraRecorder(const std::string& output_dir, int framerate, int save_batch_size)
-    : output_dir_(output_dir), framerate(framerate), save_batch_size_(save_batch_size) {
+CameraRecorder::CameraRecorder(const std::string& recording_label, int framerate, int save_batch_size)
+    : output_dir_(repo_constants::DATA_DIR + "/" + recording_label), framerate(framerate), save_batch_size_(save_batch_size) {
     batch_.reserve(save_batch_size_);
 }
 
@@ -69,8 +70,10 @@ void CameraRecorder::stop_writer() {
     writer_.join();
 }
 
-void CameraRecorder::collect_loop(const std::function<bool()>& stop_requested) {
-    std::filesystem::create_directories(output_dir_);
+void CameraRecorder::collect_loop(const std::string& collection_id,
+                                  const std::function<bool()>& stop_requested) {
+    const std::string frames_dir = output_dir_ + "/frames";
+    std::filesystem::create_directories(frames_dir);
 
     rs2::config cfg;
     cfg.enable_stream(RS2_STREAM_COLOR, FRAME_WIDTH, FRAME_HEIGHT, RS2_FORMAT_RGB8, framerate);
@@ -78,13 +81,11 @@ void CameraRecorder::collect_loop(const std::function<bool()>& stop_requested) {
     rs2::pipeline pipe;
     pipe.start(cfg);
 
-    std::cout << "Warming up camera (30 frames)..." << std::endl;
+    //"Warming up camera (30 frames)
     for (int i = 0; i < 30; ++i) pipe.wait_for_frames();
 
-    std::cout << "Recording color frames to '" << output_dir_ << "/' — press Ctrl+C to stop." << std::endl;
-
-    CsvSaver csv(output_dir_ + "/metadata.csv",
-                 "frame_number,camera_timestamp_ms,host_timestamp_ms");
+    CsvSaver csv(output_dir_ + "/camera.csv",
+                 "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms");
 
     start_writer();
 
@@ -102,14 +103,14 @@ void CameraRecorder::collect_loop(const std::function<bool()>& stop_requested) {
             : 0;
 
         std::ostringstream row;
-        row << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
+        row << collection_id << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
         csv.write_line(row.str());
 
         const uint8_t* data = static_cast<const uint8_t*>(color.get_data());
 
         std::ostringstream filename;
-        filename << output_dir_ << "/frame_"
-                 << std::setfill('0') << std::setw(5) << frame_count
+        filename << frames_dir << "/frame_"
+                 << std::setfill('0') << std::setw(6) << frame_count
                  << ".png";
 
         batch_.push_back({
@@ -121,13 +122,9 @@ void CameraRecorder::collect_loop(const std::function<bool()>& stop_requested) {
 
         if (static_cast<int>(batch_.size()) >= save_batch_size_)
             flush_batch();
-
-        if (frame_count % 30 == 0)
-            std::cout << "Saved " << frame_count << " frames" << std::endl;
     }
 
     csv.close();
     stop_writer();
     pipe.stop();
-    std::cout << "\nDone. Saved " << frame_count << " frames to '" << output_dir_ << "/'" << std::endl;
 }

@@ -18,15 +18,16 @@ static const std::string BOUNDS_PATH =
 
 
 std::string csv_header() {
-    return "timestamp,"
+    return "collection_id,timestamp,"
            "left_pinky,left_ring,left_middle,left_index,left_thumb_bend,left_thumb_rotation,"
            "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
 }
 
-std::string format_line(int64_t timestamp,
+std::string format_line(const std::string& collection_id,
+                        int64_t timestamp,
                         const opt<InspirePose>& left,
                         const opt<InspirePose>& right) {
-    std::string s = std::to_string(timestamp);
+    std::string s = collection_id + "," + std::to_string(timestamp);
     auto append_pose = [&](const opt<InspirePose>& p) {
         for (int i = 0; i < 6; ++i)
             s += p ? ("," + std::to_string((*p)(i))) : ",null";
@@ -41,12 +42,14 @@ std::string format_line(int64_t timestamp,
 InspireRetargeter::InspireRetargeter(
     const std::string& left_device,
     const std::string& right_device,
+    const std::string& recording_label,
     uint8_t id
 )
     : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200)),
       right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200)),
       left_hand_(left_serial_, id),
       right_hand_(right_serial_, id),
+      recording_label_(recording_label),
       manus_()
 {
     YAML::Node config = YAML::LoadFile(BOUNDS_PATH);
@@ -61,13 +64,10 @@ double InspireRetargeter::scale(float value, double low, double high) {
     return std::clamp((value - low) / (high - low), 0.0, 1.0);
 }
 
-CsvSaver InspireRetargeter::make_recording_csv(const std::string& recording_name) {
-    if (recording_name.empty()) {
-        return {};
-    }
-
+CsvSaver InspireRetargeter::make_recording_csv(const std::string& collection_id) const {
     const std::string csv_path =
-        repo_constants::DATA_DIR + "/" + recording_name + "_hands.csv";
+        repo_constants::DATA_DIR + "/" + recording_label_ + "/inspire_hand.csv";
+    std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label_);
     return CsvSaver(csv_path, csv_header());
 }
 
@@ -98,10 +98,10 @@ opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSid
 }
 
 void InspireRetargeter::retarget_loop(
-    const std::function<bool()>& stop_requested,
-    const std::string& recording_name
+    const std::string& collection_id,
+    const std::function<bool()>& stop_requested
 ) {
-    hand_csv_ = make_recording_csv(recording_name);
+    hand_csv_ = make_recording_csv(collection_id);
 
     while (auto pose = manus_.wait_for_next(stop_requested)) {
         auto& [left, right] = *pose;
@@ -114,7 +114,7 @@ void InspireRetargeter::retarget_loop(
 
         if (hand_csv_) {
             hand_csv_.write_line(
-                format_line(Time::ts(), left_target, right_target));
+                format_line(collection_id, Time::ts(), left_target, right_target));
         }
     }
 

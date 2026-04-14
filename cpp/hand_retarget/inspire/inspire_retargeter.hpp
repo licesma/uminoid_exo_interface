@@ -20,12 +20,13 @@ public:
     InspireRetargeter(
         const std::string& left_device,
         const std::string& right_device,
+        const std::string& recording_label,
         uint8_t id = 1
     );
 
     void retarget_loop(
-        const std::function<bool()>& stop_requested,
-        const std::string& recording_name = ""
+        const std::string& collection_id,
+        const std::function<bool()>& stop_requested
     );
 
 private:
@@ -36,7 +37,7 @@ private:
     };
 
     static double scale(float value, double low, double high);
-    static CsvSaver make_recording_csv(const std::string& recording_name);
+    CsvSaver make_recording_csv(const std::string& collection_id) const;
     static HandBounds load_bounds(const YAML::Node& node);
 
     HandBounds left_bounds_;
@@ -45,6 +46,7 @@ private:
     SerialPort::SharedPtr right_serial_;
     inspire::InspireHand left_hand_;
     inspire::InspireHand right_hand_;
+    std::string recording_label_;
     ManusReader manus_;
     CsvSaver hand_csv_;
 };

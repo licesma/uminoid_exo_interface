@@ -21,10 +21,11 @@ struct FrameData {
 
 class CameraRecorder {
 public:
-    CameraRecorder(const std::string& output_dir, int framerate, int save_batch_size = 30);
+    CameraRecorder(const std::string& recording_label, int framerate, int save_batch_size = 30);
     ~CameraRecorder();
 
-    void collect_loop(const std::function<bool()>& stop_requested);
+    void collect_loop(const std::string& collection_id,
+                      const std::function<bool()>& stop_requested);
 
 private:
     void start_writer();

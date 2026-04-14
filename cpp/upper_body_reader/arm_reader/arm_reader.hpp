@@ -34,6 +34,7 @@ class ArmReader {
   /** Blocks on wait_for_next() in a loop, writing each reading to csv_path.
    *  Returns when the arm stops or stop_requested() returns true. */
   void collect_loop(const std::string& csv_path,
+                    const std::string& collection_id,
                     const std::function<bool()>& stop_requested);
 
   void Stop();
@@ -41,7 +42,8 @@ class ArmReader {
  private:
   void ReaderLoop();
   static std::string csv_header();
-  static std::string format_line(const ArmLine& line);
+  static std::string format_line(const std::string& collection_id,
+                                 const ArmLine& line);
 
   std::unique_ptr<SkeletonArm> arm_;
   std::thread thread_;

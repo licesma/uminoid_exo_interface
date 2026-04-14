@@ -32,12 +32,13 @@ class UpperBodyReader {
  public:
   /** Construct with AS5600Arms (TCP relay). */
   explicit UpperBodyReader(
-      const std::string& relay_address, double default_value = 0.0);
+      const std::string& relay_address, const std::string& recording_label,
+      double default_value = 0.0);
 
   /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */
   UpperBodyReader(
       const std::string& left_device, const std::string& right_device,
-      int baudrate);
+      int baudrate, const std::string& recording_label);
 
   ~UpperBodyReader() = default;
 
@@ -49,7 +50,7 @@ class UpperBodyReader {
   UpperBodyReadings Eval() const;
 
 
-  void collect_loop(const std::string& recording_name,
+  void collect_loop(const std::string& collection_id,
                     const std::function<bool()>& stop_requested);
 
   JointsReadingMetadata metadata;
@@ -57,5 +58,6 @@ class UpperBodyReader {
   ArmReader right;
 
  private:
+  std::string recording_label_;
   JointBounds bounds_;
 };

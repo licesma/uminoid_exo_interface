@@ -80,10 +80,10 @@ UpperBodyReadings UpperBodyReader::Eval() const {
     combined[ARM_JOINT_COUNT + i] = right_data.data[i];
   }
 
-  auto getReadingValue = [this, &bounds = bounds_, &combined](ExoIndex j) {
+  auto getReadingValue = [this, &combined](ExoIndex j) {
     int exoIdx = static_cast<int>(j);
     G1JointIndex g1Idx = getG1JointIndex(j);
-    auto [lower, upper] = bounds[g1Idx];
+    auto [lower, upper] = bounds_[g1Idx];
     int bit_value = combined[exoIdx];
     double value = (bit_value - ENCODER_RESOLUTION / 2.0) * ENCODER_PRECISION_RAD;
 

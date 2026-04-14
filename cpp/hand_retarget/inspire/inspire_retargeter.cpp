@@ -23,11 +23,11 @@ std::string csv_header() {
            "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
 }
 
-std::string format_line(const std::string& collection_id,
+std::string format_line(int collection_id,
                         int64_t timestamp,
                         const opt<InspirePose>& left,
                         const opt<InspirePose>& right) {
-    std::string s = collection_id + "," + std::to_string(timestamp);
+    std::string s = std::to_string(collection_id) + "," + std::to_string(timestamp);
     auto append_pose = [&](const opt<InspirePose>& p) {
         for (int i = 0; i < 6; ++i)
             s += p ? ("," + std::to_string((*p)(i))) : ",null";
@@ -64,7 +64,7 @@ double InspireRetargeter::scale(float value, double low, double high) {
     return std::clamp((value - low) / (high - low), 0.0, 1.0);
 }
 
-CsvSaver InspireRetargeter::make_recording_csv(const std::string& collection_id) const {
+CsvSaver InspireRetargeter::make_recording_csv(int collection_id) const {
     const std::string csv_path =
         repo_constants::DATA_DIR + "/" + recording_label_ + "/inspire_hand.csv";
     std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label_);
@@ -98,12 +98,12 @@ opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSid
 }
 
 void InspireRetargeter::retarget_loop(
-    const std::string& collection_id,
-    const std::function<bool()>& stop_requested
+    const std::function<int()>& collection_id,
+    const std::function<bool()>& stop
 ) {
-    hand_csv_ = make_recording_csv(collection_id);
+    hand_csv_ = make_recording_csv(collection_id());
 
-    while (auto pose = manus_.wait_for_next(stop_requested)) {
+    while (auto pose = manus_.wait_for_next(stop)) {
         auto& [left, right] = *pose;
 
         opt<InspirePose> left_target  = retarget(*left,  HandSide::LEFT);
@@ -114,7 +114,7 @@ void InspireRetargeter::retarget_loop(
 
         if (hand_csv_) {
             hand_csv_.write_line(
-                format_line(collection_id, Time::ts(), left_target, right_target));
+                format_line(collection_id(), Time::ts(), left_target, right_target));
         }
     }
 

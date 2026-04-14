@@ -70,8 +70,8 @@ void CameraRecorder::stop_writer() {
     writer_.join();
 }
 
-void CameraRecorder::collect_loop(const std::string& collection_id,
-                                  const std::function<bool()>& stop_requested) {
+void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
+                                  const std::function<bool()>& stop) {
     const std::string frames_dir = output_dir_ + "/frames";
     std::filesystem::create_directories(frames_dir);
 
@@ -91,7 +91,7 @@ void CameraRecorder::collect_loop(const std::string& collection_id,
 
     int frame_count = 0;
 
-    while (!stop_requested()) {
+    while (!stop()) {
         rs2::frameset frames = pipe.wait_for_frames();
         rs2::video_frame color = frames.get_color_frame();
 
@@ -103,7 +103,7 @@ void CameraRecorder::collect_loop(const std::string& collection_id,
             : 0;
 
         std::ostringstream row;
-        row << collection_id << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
+        row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
         csv.write_line(row.str());
 
         const uint8_t* data = static_cast<const uint8_t*>(color.get_data());

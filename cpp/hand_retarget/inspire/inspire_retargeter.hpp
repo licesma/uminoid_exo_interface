@@ -25,8 +25,8 @@ public:
     );
 
     void retarget_loop(
-        const std::string& collection_id,
-        const std::function<bool()>& stop_requested
+        const std::function<int()>& collection_id,
+        const std::function<bool()>& stop
     );
 
 private:
@@ -37,7 +37,7 @@ private:
     };
 
     static double scale(float value, double low, double high);
-    CsvSaver make_recording_csv(const std::string& collection_id) const;
+    CsvSaver make_recording_csv(int collection_id) const;
     static HandBounds load_bounds(const YAML::Node& node);
 
     HandBounds left_bounds_;

@@ -58,16 +58,16 @@ void UpperBodyReader::PrintRaw() const {
 }
 
 void UpperBodyReader::collect_loop(
-    const std::string& collection_id,
-    const std::function<bool()>& stop_requested) {
+    const std::function<int()>& collection_id,
+    const std::function<bool()>& stop) {
   const std::string dir =
       repo_constants::DATA_DIR + "/" + recording_label_;
 
   std::thread left_thread([&] {
-    left.collect_loop(dir + "/left_arm.csv", collection_id, stop_requested);
+    left.collect_loop(dir + "/left_arm.csv", collection_id, stop);
   });
   std::thread right_thread([&] {
-    right.collect_loop(dir + "/right_arm.csv", collection_id, stop_requested);
+    right.collect_loop(dir + "/right_arm.csv", collection_id, stop);
   });
 
   left_thread.join();

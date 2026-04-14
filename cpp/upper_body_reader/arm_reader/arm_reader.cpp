@@ -46,9 +46,8 @@ std::string ArmReader::csv_header() {
   return h;
 }
 
-std::string ArmReader::format_line(const std::string& collection_id,
-                                   const ArmLine& line) {
-  std::string s = collection_id + "," +
+std::string ArmReader::format_line(int collection_id, const ArmLine& line) {
+  std::string s = std::to_string(collection_id) + "," +
                   std::to_string(line.timestamp) + "," +
                   std::to_string(line.host_timestamp);
   for (const auto v : line.data) s += "," + std::to_string(v);
@@ -56,14 +55,14 @@ std::string ArmReader::format_line(const std::string& collection_id,
 }
 
 void ArmReader::collect_loop(const std::string& csv_path,
-                             const std::string& collection_id,
-                             const std::function<bool()>& stop_requested) {
+                             const std::function<int()>& collection_id,
+                             const std::function<bool()>& stop) {
   CsvSaver csv(csv_path, csv_header());
 
-  while (!stop_requested()) {
+  while (!stop()) {
     auto reading = wait_for_next();
     if (!reading) break;
-    csv.write_line(format_line(collection_id, *reading));
+    csv.write_line(format_line(collection_id(), *reading));
   }
 
   csv.close();

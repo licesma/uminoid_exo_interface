@@ -50,8 +50,8 @@ class UpperBodyReader {
   UpperBodyReadings Eval() const;
 
 
-  void collect_loop(const std::string& collection_id,
-                    const std::function<bool()>& stop_requested);
+  void collect_loop(const std::function<int()>& collection_id,
+                    const std::function<bool()>& stop);
 
   JointsReadingMetadata metadata;
   ArmReader left;

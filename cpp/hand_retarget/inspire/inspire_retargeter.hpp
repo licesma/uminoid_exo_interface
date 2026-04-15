@@ -20,13 +20,13 @@ public:
     InspireRetargeter(
         const std::string& left_device,
         const std::string& right_device,
-        const std::string& recording_label,
+        const std::string& recording_label = "",
         uint8_t id = 1
     );
 
     void retarget_loop(
-        const std::function<int()>& collection_id,
-        const std::function<bool()>& stop
+        const std::function<bool()>& stop,
+        const std::function<int()>& collection_id = [] { return 0; }
     );
 
 private:

@@ -59,8 +59,10 @@ InspireRetargeter::InspireRetargeter(
     left_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
     right_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
 
-    const std::string dir = repo_constants::DATA_DIR + "/" + recording_label_;
-    hand_csv_ = CsvSaver(dir + "/inspire_hand.csv", csv_header());
+    if (!recording_label_.empty()) {
+        const std::string dir = repo_constants::DATA_DIR + "/" + recording_label_;
+        hand_csv_ = CsvSaver(dir + "/inspire_hand.csv", csv_header());
+    }
 }
 
 double InspireRetargeter::scale(float value, double low, double high) {
@@ -95,8 +97,8 @@ opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSid
 }
 
 void InspireRetargeter::retarget_loop(
-    const std::function<int()>& collection_id,
-    const std::function<bool()>& stop
+    const std::function<bool()>& stop,
+    const std::function<int()>& collection_id
 ) {
 
     while (auto pose = manus_.wait_for_next(stop)) {

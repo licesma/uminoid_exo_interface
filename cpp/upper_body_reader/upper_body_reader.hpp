@@ -32,7 +32,7 @@ class UpperBodyReader {
  public:
   /** Construct with AS5600Arms (TCP relay). */
   explicit UpperBodyReader(
-      const std::string& relay_address, const std::string& recording_label,
+      const std::string& relay_address, const std::string& recording_label = "",
       double default_value = 0.0);
 
   /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */

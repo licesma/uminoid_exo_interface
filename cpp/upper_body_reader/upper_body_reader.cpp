@@ -21,9 +21,9 @@ UpperBodyReader::UpperBodyReader(const std::string& relay_address,
                                  double default_value)
     : metadata(LoadMetadata(AS5600_BOUNDS_PATH)),
       left(std::make_unique<AS5600Arm>(relay_address, 0),
-           repo_constants::DATA_DIR + "/" + recording_label + "/left_arm.csv"),
+           recording_label.empty() ? "" : repo_constants::DATA_DIR + "/" + recording_label + "/left_arm.csv"),
       right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT),
-            repo_constants::DATA_DIR + "/" + recording_label + "/right_arm.csv"),
+            recording_label.empty() ? "" : repo_constants::DATA_DIR + "/" + recording_label + "/right_arm.csv"),
       recording_label_(recording_label),
       bounds_(LoadBounds(AS5600_BOUNDS_PATH)) {}
 

@@ -1,6 +1,7 @@
 #include "camera_recorder.hpp"
 
 #include "utils/repo_constants.hpp"
+#include "utils/time.hpp"
 
 #include <librealsense2/rs.hpp>
 
@@ -97,9 +98,7 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
         if (!color) continue;
 
         double camera_ts = color.get_timestamp();
-        long long host_ts = color.supports_frame_metadata(RS2_FRAME_METADATA_TIME_OF_ARRIVAL)
-            ? color.get_frame_metadata(RS2_FRAME_METADATA_TIME_OF_ARRIVAL)
-            : 0;
+        uint64_t host_ts = Time::ts();
 
         std::ostringstream row;
         row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;

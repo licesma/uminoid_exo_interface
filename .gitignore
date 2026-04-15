@@ -3,3 +3,4 @@ cpp/.cache/
 .clangd
 .vscode
 __pycache__/
+data/

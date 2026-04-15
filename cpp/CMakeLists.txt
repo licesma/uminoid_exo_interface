@@ -88,6 +88,10 @@ target_compile_definitions(g1 PRIVATE
 ######################################################################################################
 
 
+add_executable(collect collect.cpp)
+target_include_directories(collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(collect PRIVATE upper_body_reader inspire_retargeter manus_reader camera_recorder yaml-cpp)
+
 add_executable(teleoperate teleoperate.cpp)
 target_include_directories(teleoperate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(teleoperate PRIVATE g1 upper_body_reader yaml-cpp)
@@ -99,7 +103,7 @@ target_compile_definitions(teleoperate PRIVATE
 
 file(GLOB TEST_SOURCES test/*.cpp)
 # DDS-based tests that link against unitree_sdk2 instead of the default test deps
-set(DDS_TESTS inspire_g1_test retarget_test)
+set(DDS_TESTS inspire_g1_test retarget_test camera_test)
 foreach(test_source ${TEST_SOURCES})
   get_filename_component(test_name ${test_source} NAME_WE)
   if(${test_name} IN_LIST DDS_TESTS)
@@ -119,9 +123,11 @@ endforeach()
 add_executable(retarget_test test/retarget_test.cpp)
 target_include_directories(retarget_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(retarget_test PRIVATE inspire_retargeter manus_reader)
-target_compile_definitions(retarget_test PRIVATE
-  BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hand_retarget/inspire/inspire_retarget_bounds.yaml"
-)
+
+add_executable(camera_test test/camera_test.cpp)
+target_include_directories(camera_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(camera_test PRIVATE camera_recorder)
+
 
 # DDS-based inspire hand test (communicates via G1 DDS topics)
 add_executable(inspire_g1_test test/inspire_g1_test.cpp)
@@ -133,11 +139,5 @@ target_include_directories(inspire_retargeter PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
 target_link_libraries(inspire_retargeter PUBLIC yaml-cpp)
 
-add_executable(manus_to_inspire manus_to_inspire.cpp)
-target_include_directories(manus_to_inspire PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(manus_to_inspire PRIVATE inspire_retargeter manus_reader)
-target_compile_definitions(manus_to_inspire PRIVATE
-  BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/hand_retarget/inspire/inspire_retarget_bounds.yaml"
-)
 
 

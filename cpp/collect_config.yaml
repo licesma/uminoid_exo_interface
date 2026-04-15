@@ -1,0 +1,8 @@
+upper_body:
+  left_device: "/dev/ttyUSB3"
+  right_device: "/dev/ttyUSB2"
+  baudrate: 1000000
+
+inspire:
+  left_device: "/dev/ttyUSB0"
+  right_device: "/dev/ttyUSB1"

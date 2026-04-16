@@ -25,7 +25,7 @@ class ArmReader {
   ArmReader(const ArmReader&) = delete;
   ArmReader& operator=(const ArmReader&) = delete;
 
-  bool is_ok() const { return arm_ && arm_->isOk(); }
+  bool is_ok() const { return arm_ && arm_->IsOk(); }
 
   /** Non-blocking: returns the latest reading. */
   ArmLine snapshot() const {

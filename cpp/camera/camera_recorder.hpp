@@ -2,6 +2,7 @@
 
 #include <condition_variable>
 #include <functional>
+#include <librealsense2/rs.hpp>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -33,20 +34,22 @@ struct FrameData {
 
 class CameraRecorder {
 public:
-    CameraRecorder(const std::string& recording_label);
+    CameraRecorder(const std::string& recording_label,
+                   const std::function<void(const std::string&)>& raise_error);
     ~CameraRecorder();
 
     void collect_loop(const std::function<int()>& collection_id,
-                      const std::function<bool()>& stop,
-                      const std::function<void(const std::string&)>& raise_error);
+                      const std::function<bool()>& stop);
 
 private:
-    void start_writer(const std::function<void(const std::string&)>& raise_error);
+    void start_writer();
     void flush_batch();
     void stop_writer();
 
     std::string output_dir_;
+    std::function<void(const std::string&)> raise_error_;
     CsvSaver csv_;
+    rs2::pipeline pipe_;
 
     // Current batch being filled by main thread
     std::vector<FrameData> batch_;

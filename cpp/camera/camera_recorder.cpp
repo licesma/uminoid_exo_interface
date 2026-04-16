@@ -14,18 +14,30 @@ using namespace camera_constants;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "utils/stb_image_write.h"
 
-CameraRecorder::CameraRecorder(const std::string& recording_label)
+CameraRecorder::CameraRecorder(const std::string& recording_label,
+                               const std::function<void(const std::string&)>& raise_error)
     : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
+      raise_error_(raise_error),
       csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms") {
     batch_.reserve(SAVE_BATCH_SIZE);
+
+    try {
+        std::filesystem::create_directories(output_dir_ + "/frames");
+
+        rs2::config cfg;
+        cfg.enable_stream(RS2_STREAM_COLOR, FRAME_WIDTH, FRAME_HEIGHT, RS2_FORMAT_RGB8, FRAMERATE);
+        pipe_.start(cfg);
+    } catch (const std::exception& e) {
+        raise_error_(std::string("[Camera] ") + e.what());
+    }
 }
 
 CameraRecorder::~CameraRecorder() {
     stop_writer();
 }
 
-void CameraRecorder::start_writer(const std::function<void(const std::string&)>& raise_error) {
-    writer_ = std::thread([this, &raise_error] {
+void CameraRecorder::start_writer() {
+    writer_ = std::thread([this] {
         while (true) {
             std::vector<FrameData> batch;
 
@@ -36,7 +48,7 @@ void CameraRecorder::start_writer(const std::function<void(const std::string&)>&
                 if (stop_writer_ && write_queue_.empty()) break;
 
                 if (write_queue_.size() >= MAX_WRITE_QUEUE_SIZE) {
-                    raise_error("[Camera] Write queue full — disk I/O can't keep up");
+                    raise_error_("[Camera] Write queue full — disk I/O can't keep up");
                     return;
                 }
 
@@ -51,7 +63,7 @@ void CameraRecorder::start_writer(const std::function<void(const std::string&)>&
                                         f.pixels.data(),
                                         FRAME_STRIDE);
                 if (!ok) {
-                    raise_error("[Camera] Failed to write " + f.filename);
+                    raise_error_("[Camera] Failed to write " + f.filename);
                     return;
                 }
             }
@@ -83,26 +95,17 @@ void CameraRecorder::stop_writer() {
 }
 
 void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
-                                  const std::function<bool()>& stop,
-                                  const std::function<void(const std::string&)>& raise_error) {
+                                  const std::function<bool()>& stop) {
     try {
         const std::string frames_dir = output_dir_ + "/frames";
-        std::filesystem::create_directories(frames_dir);
 
-        rs2::config cfg;
-        cfg.enable_stream(RS2_STREAM_COLOR, FRAME_WIDTH, FRAME_HEIGHT, RS2_FORMAT_RGB8, FRAMERATE);
+        for (int i = 0; i < WARMUP_COUNT; ++i) pipe_.wait_for_frames(FRAME_TIMEOUT_MS);
 
-        rs2::pipeline pipe;
-        pipe.start(cfg);
-
-        for (int i = 0; i < WARMUP_COUNT; ++i) pipe.wait_for_frames(FRAME_TIMEOUT_MS);
-
-        start_writer(raise_error);
-
+        start_writer();
         int frame_count = 0;
 
         while (!stop()) {
-            rs2::frameset frames = pipe.wait_for_frames(FRAME_TIMEOUT_MS);
+            rs2::frameset frames = pipe_.wait_for_frames(FRAME_TIMEOUT_MS);
             rs2::video_frame color = frames.get_color_frame();
 
             if (!color) continue;
@@ -134,8 +137,8 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
 
         csv_.close();
         stop_writer();
-        pipe.stop();
+        pipe_.stop();
     } catch (const std::exception& e) {
-        raise_error(std::string("[Camera] ") + e.what());
+        raise_error_(std::string("[Camera] ") + e.what());
     }
 }

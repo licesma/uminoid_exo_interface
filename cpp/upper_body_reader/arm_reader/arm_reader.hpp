@@ -25,10 +25,13 @@ class ArmReader {
   ArmReader(const ArmReader&) = delete;
   ArmReader& operator=(const ArmReader&) = delete;
 
-  bool IsOk() const { return arm_ && arm_->IsOk(); }
+  bool is_ok() const { return arm_ && arm_->isOk(); }
 
   /** Non-blocking: returns the latest reading. */
-  ArmLine Snapshot() const;
+  ArmLine snapshot() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return latest_;
+  }
 
   /** Blocking: waits until a new reading arrives since the last call. */
   std::optional<ArmLine> wait_for_next();
@@ -36,14 +39,13 @@ class ArmReader {
   /** Blocks on wait_for_next() in a loop, writing each reading to csv_path.
    *  Returns when the arm stops or stop_requested() returns true. */
   void collect_loop(const std::function<int()>& collection_id,
-                    const std::function<bool()>& stop);
+                    const std::function<bool()>& stop,
+                    const std::function<void(const std::string&)>& raise_error);
 
-  void Stop();
+  void stop();
 
  private:
-  void ReaderLoop();
-  static std::string csv_header();
-  static std::string format_line(int collection_id, const ArmLine& line);
+  void read_loop();
 
   std::unique_ptr<SkeletonArm> arm_;
   CsvSaver csv_;

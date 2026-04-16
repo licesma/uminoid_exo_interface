@@ -2,19 +2,38 @@
 
 #include <string>
 
+namespace {
+
+std::string csv_header() {
+  std::string h = "collection_id,timestamp,host_timestamp";
+  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i)
+    h += ",joint_" + std::to_string(i);
+  return h;
+}
+
+std::string format_line(int collection_id, const ArmLine& line) {
+  std::string s = std::to_string(collection_id) + "," +
+                  std::to_string(line.timestamp) + "," +
+                  std::to_string(line.host_timestamp);
+  for (const auto v : line.data) s += "," + std::to_string(v);
+  return s;
+}
+
+}  // namespace
+
 ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm, const std::string& csv_path)
     : arm_(std::move(arm)),
       csv_(csv_path.empty() ? CsvSaver{} : CsvSaver(csv_path, csv_header())),
-      stopped_(!IsOk()) {
+      stopped_(!is_ok()) {
   if (!stopped_)
-    thread_ = std::thread(&ArmReader::ReaderLoop, this);
+    thread_ = std::thread(&ArmReader::read_loop, this);
 }
 
 ArmReader::~ArmReader() {
-  Stop();
+  stop();
 }
 
-void ArmReader::Stop() {
+void ArmReader::stop() {
   if (arm_) arm_->Stop();
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -24,10 +43,6 @@ void ArmReader::Stop() {
   if (thread_.joinable()) thread_.join();
 }
 
-ArmLine ArmReader::Snapshot() const {
-  std::lock_guard<std::mutex> lock(mutex_);
-  return latest_;
-}
 
 std::optional<ArmLine> ArmReader::wait_for_next() {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -40,23 +55,15 @@ std::optional<ArmLine> ArmReader::wait_for_next() {
   return std::nullopt;
 }
 
-std::string ArmReader::csv_header() {
-  std::string h = "collection_id,timestamp,host_timestamp";
-  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i)
-    h += ",joint_" + std::to_string(i);
-  return h;
-}
-
-std::string ArmReader::format_line(int collection_id, const ArmLine& line) {
-  std::string s = std::to_string(collection_id) + "," +
-                  std::to_string(line.timestamp) + "," +
-                  std::to_string(line.host_timestamp);
-  for (const auto v : line.data) s += "," + std::to_string(v);
-  return s;
-}
 
 void ArmReader::collect_loop(const std::function<int()>& collection_id,
-                             const std::function<bool()>& stop) {
+                             const std::function<bool()>& stop,
+                             const std::function<void(const std::string&)>& raise_error) {
+  if (!is_ok()) {
+    raise_error("[ArmReader] Device failed to initialize");
+    return;
+  }
+
   while (!stop()) {
     auto reading = wait_for_next();
     if (!reading) break;
@@ -66,7 +73,7 @@ void ArmReader::collect_loop(const std::function<int()>& collection_id,
   csv_.close();
 }
 
-void ArmReader::ReaderLoop() {
+void ArmReader::read_loop() {
   while (arm_->IsOk()) {
     auto frame = arm_->GetNextLine();
     if (!frame) break;

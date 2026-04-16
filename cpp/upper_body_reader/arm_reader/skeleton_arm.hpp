@@ -4,12 +4,14 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <string>
 
 /** Data returned by a single-arm SkeletonArm. */
 struct ArmLine {
   uint64_t timestamp;
-  uint64_t host_timestamp; 
+  uint64_t host_timestamp;
   std::array<uint16_t, ARM_JOINT_COUNT> data;
 };
 
@@ -24,11 +26,11 @@ class SkeletonArm {
   SkeletonArm(const SkeletonArm&) = delete;
   SkeletonArm& operator=(const SkeletonArm&) = delete;
 
-  virtual bool IsOk() const = 0;
   virtual void Stop() = 0;
 
   /** Blocks until new data is available for this arm. */
-  virtual std::optional<ArmLine> GetNextLine() = 0;
+  virtual std::optional<ArmLine> GetNextLine(
+      const std::function<void(const std::string&)>& raise_error) = 0;
 
  protected:
   SkeletonArm() = default;

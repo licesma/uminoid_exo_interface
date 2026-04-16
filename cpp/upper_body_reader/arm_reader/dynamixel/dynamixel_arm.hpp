@@ -23,12 +23,13 @@ class DynamixelArm : public SkeletonArm {
   static constexpr uint16_t FALLBACK_VALUE = 5000;
 
   explicit DynamixelArm(const std::string& device = "/dev/ttyUSB0",
-                           int baudrate = 1000000);
+                           int baudrate = 1000000,
+                           const std::function<void(const std::string&)>& raise_error = nullptr);
   ~DynamixelArm() override;
 
-  bool IsOk() const override { return ok_; }
   void Stop() override;
-  std::optional<ArmLine> GetNextLine() override;
+  std::optional<ArmLine> GetNextLine(
+      const std::function<void(const std::string&)>& raise_error) override;
 
  private:
   // Realtime Tick: address 120, 2 bytes (uint16, ms, wraps at 32767)
@@ -52,7 +53,6 @@ class DynamixelArm : public SkeletonArm {
   dynamixel::GroupFastSyncRead* group_sync_read_{nullptr};
 
   std::atomic<bool> running_{true};
-  bool ok_{false};
 
   DynamixelTimestampHelper timestamp_helper_{DXL_IDS[0]};
 };

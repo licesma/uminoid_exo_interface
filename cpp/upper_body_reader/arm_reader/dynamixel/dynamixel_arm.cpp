@@ -7,17 +7,18 @@
 
 #include <cstdio>
 
-DynamixelArm::DynamixelArm(const std::string& device, int baudrate) {
+DynamixelArm::DynamixelArm(const std::string& device, int baudrate,
+                           const std::function<void(const std::string&)>& raise_error) {
   port_handler_ = dynamixel::PortHandler::getPortHandler(device.c_str());
   packet_handler_ = dynamixel::PacketHandler::getPacketHandler(PROTOCOL_VERSION);
 
   if (!port_handler_->openPort()) {
-    fprintf(stderr, "DynamixelArm: failed to open port %s\n", device.c_str());
+    if (raise_error) raise_error("[DynamixelArm] Failed to open port " + device);
     return;
   }
 
   if (!port_handler_->setBaudRate(baudrate)) {
-    fprintf(stderr, "DynamixelArm: failed to set baudrate %d on %s\n", baudrate, device.c_str());
+    if (raise_error) raise_error("[DynamixelArm] Failed to set baudrate on " + device);
     return;
   }
 
@@ -26,13 +27,10 @@ DynamixelArm::DynamixelArm(const std::string& device, int baudrate) {
 
   for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
     if (!group_sync_read_->addParam(DXL_IDS[i])) {
-      fprintf(stderr, "[%s][ID:%03d] groupFastSyncRead addParam failed\n",
-              device.c_str(), DXL_IDS[i]);
+      if (raise_error) raise_error("[DynamixelArm] addParam failed for ID " + std::to_string(DXL_IDS[i]) + " on " + device);
       return;
     }
   }
-
-  ok_ = true;
 }
 
 DynamixelArm::~DynamixelArm() {
@@ -48,17 +46,20 @@ void DynamixelArm::Stop() {
   group_sync_read_ = nullptr;
 }
 
-std::optional<ArmLine> DynamixelArm::GetNextLine() {
-  if (!ok_ || !running_.load()) return std::nullopt;
+std::optional<ArmLine> DynamixelArm::GetNextLine(
+    const std::function<void(const std::string&)>& raise_error) {
+  if (!running_.load() || !group_sync_read_) return std::nullopt;
 
   int result = group_sync_read_->txRxPacket();
   if (result != COMM_SUCCESS) {
+    raise_error("[DynamixelArm] txRxPacket failed (code " + std::to_string(result) + ")");
     return std::nullopt;
   }
 
   // Extract timestamp from Realtime Tick
   auto timestamp_ms = timestamp_helper_.getTimestamp(*group_sync_read_);
   if (!timestamp_ms) {
+    raise_error("[DynamixelArm] Timestamp unavailable");
     return std::nullopt;
   }
 

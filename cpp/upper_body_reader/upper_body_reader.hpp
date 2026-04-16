@@ -38,7 +38,8 @@ class UpperBodyReader {
   /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */
   UpperBodyReader(
       const std::string& left_device, const std::string& right_device,
-      int baudrate, const std::string& recording_label);
+      int baudrate, const std::string& recording_label,
+      const std::function<void(const std::string&)>& raise_error);
 
   ~UpperBodyReader() = default;
 
@@ -51,8 +52,7 @@ class UpperBodyReader {
 
 
   void collect_loop(const std::function<int()>& collection_id,
-                    const std::function<bool()>& stop,
-                    const std::function<void(const std::string&)>& raise_error);
+                    const std::function<bool()>& stop);
 
   JointsReadingMetadata metadata;
   ArmReader left;

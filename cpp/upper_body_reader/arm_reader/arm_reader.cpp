@@ -21,12 +21,17 @@ std::string format_line(int collection_id, const ArmLine& line) {
 
 }  // namespace
 
-ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm, const std::string& csv_path)
+ArmReader::ArmReader(std::unique_ptr<SkeletonArm> arm,
+                     const std::string& csv_path,
+                     const std::function<void(const std::string&)>& raise_error)
     : arm_(std::move(arm)),
-      csv_(csv_path.empty() ? CsvSaver{} : CsvSaver(csv_path, csv_header())),
-      stopped_(!is_ok()) {
-  if (!stopped_)
-    thread_ = std::thread(&ArmReader::read_loop, this);
+      raise_error_(raise_error),
+      csv_(csv_path.empty() ? CsvSaver{} : CsvSaver(csv_path, csv_header())) {
+  if (!arm_) {
+    stopped_ = true;
+    return;
+  }
+  thread_ = std::thread(&ArmReader::read_loop, this);
 }
 
 ArmReader::~ArmReader() {
@@ -57,13 +62,7 @@ std::optional<ArmLine> ArmReader::wait_for_next() {
 
 
 void ArmReader::collect_loop(const std::function<int()>& collection_id,
-                             const std::function<bool()>& stop,
-                             const std::function<void(const std::string&)>& raise_error) {
-  if (!is_ok()) {
-    raise_error("[ArmReader] Device failed to initialize");
-    return;
-  }
-
+                             const std::function<bool()>& stop) {
   while (!stop()) {
     auto reading = wait_for_next();
     if (!reading) break;
@@ -74,9 +73,7 @@ void ArmReader::collect_loop(const std::function<int()>& collection_id,
 }
 
 void ArmReader::read_loop() {
-  while (arm_->IsOk()) {
-    auto frame = arm_->GetNextLine();
-    if (!frame) break;
+  while (auto frame = arm_->GetNextLine(raise_error_)) {
     {
       std::lock_guard<std::mutex> lock(mutex_);
       latest_ = *frame;

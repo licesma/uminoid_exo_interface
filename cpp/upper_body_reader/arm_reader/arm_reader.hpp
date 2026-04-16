@@ -19,13 +19,12 @@ class ArmReader {
  public:
   /** Pass nullptr for an inactive arm. */
   explicit ArmReader(std::unique_ptr<SkeletonArm> arm = nullptr,
-                     const std::string& csv_path = "");
+                     const std::string& csv_path = "",
+                     const std::function<void(const std::string&)>& raise_error = nullptr);
   ~ArmReader();
 
   ArmReader(const ArmReader&) = delete;
   ArmReader& operator=(const ArmReader&) = delete;
-
-  bool is_ok() const { return arm_ && arm_->IsOk(); }
 
   /** Non-blocking: returns the latest reading. */
   ArmLine snapshot() const {
@@ -39,8 +38,7 @@ class ArmReader {
   /** Blocks on wait_for_next() in a loop, writing each reading to csv_path.
    *  Returns when the arm stops or stop_requested() returns true. */
   void collect_loop(const std::function<int()>& collection_id,
-                    const std::function<bool()>& stop,
-                    const std::function<void(const std::string&)>& raise_error);
+                    const std::function<bool()>& stop);
 
   void stop();
 
@@ -48,6 +46,7 @@ class ArmReader {
   void read_loop();
 
   std::unique_ptr<SkeletonArm> arm_;
+  std::function<void(const std::string&)> raise_error_;
   CsvSaver csv_;
   std::thread thread_;
 

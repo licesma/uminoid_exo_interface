@@ -35,7 +35,8 @@ static std::pair<std::string, uint16_t> parse_relay_address(
   return {host, port};
 }
 
-AS5600Arm::AS5600Arm(const std::string& relay_address, size_t joint_offset)
+AS5600Arm::AS5600Arm(const std::string& relay_address, size_t joint_offset,
+                     const std::function<void(const std::string&)>& raise_error)
     : joint_offset_(joint_offset) {
   try {
     auto [host, port] = parse_relay_address(relay_address);
@@ -68,8 +69,7 @@ AS5600Arm::AS5600Arm(const std::string& relay_address, size_t joint_offset)
       throw std::runtime_error("connect() failed");
     }
   } catch (const std::exception& e) {
-    std::cerr << "AS5600Arm: failed to connect to relay " << relay_address
-              << ": " << e.what() << "\n";
+    if (raise_error) raise_error("[AS5600Arm] " + relay_address + ": " + e.what());
   }
 }
 
@@ -85,17 +85,24 @@ void AS5600Arm::Stop() {
   }
 }
 
-std::optional<ArmLine> AS5600Arm::GetNextLine() {
+std::optional<ArmLine> AS5600Arm::GetNextLine(
+    const std::function<void(const std::string&)>& raise_error) {
   uint8_t buf[FRAME_SIZE];
 
   while (running_.load() && socket_fd_ >= 0) {
     // Sync: find first byte of LE sync word (0x55)
     ssize_t n = recv(socket_fd_, &buf[0], 1, 0);
-    if (n <= 0) return std::nullopt;
+    if (n <= 0) {
+      raise_error("[AS5600Arm] recv() failed — connection lost");
+      return std::nullopt;
+    }
     if (buf[0] != (SYNC_WORD & 0xFF)) continue;
 
     n = recv(socket_fd_, &buf[1], 1, 0);
-    if (n <= 0) return std::nullopt;
+    if (n <= 0) {
+      raise_error("[AS5600Arm] recv() failed — connection lost");
+      return std::nullopt;
+    }
     if (buf[1] != (SYNC_WORD >> 8)) continue;
 
     // Read the remaining 38 bytes (timestamp + values + crc)
@@ -103,7 +110,10 @@ std::optional<ArmLine> AS5600Arm::GetNextLine() {
     size_t total = 0;
     while (total < remaining && running_.load()) {
       n = recv(socket_fd_, &buf[2] + total, remaining - total, 0);
-      if (n <= 0) return std::nullopt;
+      if (n <= 0) {
+        raise_error("[AS5600Arm] recv() failed — connection lost");
+        return std::nullopt;
+      }
       total += static_cast<size_t>(n);
     }
 

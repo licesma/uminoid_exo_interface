@@ -10,11 +10,21 @@
 
 #include "utils/csv_saver.hpp"
 
-constexpr int FRAME_WIDTH = 1920;
-constexpr int FRAME_HEIGHT = 1080;
-constexpr int FRAME_BYTES_PER_PIXEL = 3; // RGB8
-constexpr int FRAME_STRIDE = FRAME_WIDTH * FRAME_BYTES_PER_PIXEL;
-constexpr int FRAME_SIZE = FRAME_STRIDE * FRAME_HEIGHT;
+namespace camera_constants {
+    //General
+    constexpr int FRAMERATE = 30;
+    constexpr unsigned int FRAME_TIMEOUT_MS = 5000;
+    constexpr unsigned int WARMUP_COUNT = 3000;
+    // Frame
+    constexpr int FRAME_WIDTH = 1920;
+    constexpr int FRAME_HEIGHT = 1080;
+    constexpr int FRAME_BYTES_PER_PIXEL = 3; // RGB8
+    constexpr int FRAME_STRIDE = FRAME_WIDTH * FRAME_BYTES_PER_PIXEL;
+    constexpr int FRAME_SIZE = FRAME_STRIDE * FRAME_HEIGHT;
+    // Frame Writer
+    constexpr int SAVE_BATCH_SIZE = 30;
+    constexpr size_t MAX_WRITE_QUEUE_SIZE = 10;
+}
 
 struct FrameData {
     std::string filename;
@@ -23,21 +33,20 @@ struct FrameData {
 
 class CameraRecorder {
 public:
-    CameraRecorder(const std::string& recording_label, int framerate, int save_batch_size = 30);
+    CameraRecorder(const std::string& recording_label);
     ~CameraRecorder();
 
     void collect_loop(const std::function<int()>& collection_id,
-                      const std::function<bool()>& stop);
+                      const std::function<bool()>& stop,
+                      const std::function<void(const std::string&)>& raise_error);
 
 private:
-    void start_writer();
+    void start_writer(const std::function<void(const std::string&)>& raise_error);
     void flush_batch();
     void stop_writer();
 
     std::string output_dir_;
     CsvSaver csv_;
-    int framerate;
-    int save_batch_size_;
 
     // Current batch being filled by main thread
     std::vector<FrameData> batch_;

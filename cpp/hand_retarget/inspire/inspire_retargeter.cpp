@@ -43,10 +43,11 @@ InspireRetargeter::InspireRetargeter(
     const std::string& left_device,
     const std::string& right_device,
     const std::string& recording_label,
+    const std::function<void(const std::string&)>& raise_error,
     uint8_t id
 )
-    : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200)),
-      right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200)),
+    : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200, raise_error)),
+      right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200, raise_error)),
       left_hand_(left_serial_, id),
       right_hand_(right_serial_, id),
       recording_label_(recording_label),
@@ -56,6 +57,7 @@ InspireRetargeter::InspireRetargeter(
     left_bounds_  = load_bounds(config["left"]);
     right_bounds_ = load_bounds(config["right"]);
 
+    // SetVelocity errors propagate via raise_error wired into SerialPort.
     left_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
     right_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
 
@@ -107,6 +109,7 @@ void InspireRetargeter::retarget_loop(
         opt<InspirePose> left_target  = retarget(*left,  HandSide::LEFT);
         opt<InspirePose> right_target = retarget(*right, HandSide::RIGHT);
 
+        // SetPosition errors propagate via raise_error wired into SerialPort.
         left_target && left_hand_.SetPosition(*left_target);
         right_target && right_hand_.SetPosition(*right_target);
 

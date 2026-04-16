@@ -21,6 +21,7 @@ public:
         const std::string& left_device,
         const std::string& right_device,
         const std::string& recording_label = "",
+        const std::function<void(const std::string&)>& raise_error = nullptr,
         uint8_t id = 1
     );
 

@@ -27,7 +27,8 @@ public:
 
     void retarget_loop(
         const std::function<bool()>& stop,
-        const std::function<int()>& collection_id = [] { return 0; }
+        const std::function<int()>&  collection_id = [] { return 0; },
+        const std::function<bool()>& pause        = [] { return false; }
     );
 
 private:

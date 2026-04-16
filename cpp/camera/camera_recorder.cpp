@@ -94,8 +94,9 @@ void CameraRecorder::stop_writer() {
     writer_.join();
 }
 
-void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
-                                  const std::function<bool()>& stop) {
+void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
+                                  const std::function<bool()>& stop,
+                                  const std::function<bool()>& pause) {
     try {
         const std::string frames_dir = output_dir_ + "/frames";
 
@@ -108,7 +109,7 @@ void CameraRecorder::collect_loop(const std::function<int()>& collection_id,
             rs2::frameset frames = pipe_.wait_for_frames(FRAME_TIMEOUT_MS);
             rs2::video_frame color = frames.get_color_frame();
 
-            if (!color) continue;
+            if (!color || pause()) continue;
 
             double camera_ts = color.get_timestamp();
             uint64_t host_ts = Time::ts();

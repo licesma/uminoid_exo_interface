@@ -61,12 +61,14 @@ std::optional<ArmLine> ArmReader::wait_for_next() {
 }
 
 
-void ArmReader::collect_loop(const std::function<int()>& collection_id,
-                             const std::function<bool()>& stop) {
+void ArmReader::collect_loop(const std::function<int()>&  collection_id,
+                             const std::function<bool()>& stop,
+                             const std::function<bool()>& pause) {
   while (!stop()) {
     auto reading = wait_for_next();
     if (!reading) break;
-    csv_.write_line(format_line(collection_id(), *reading));
+    if (!pause())
+      csv_.write_line(format_line(collection_id(), *reading));
   }
 
   csv_.close();

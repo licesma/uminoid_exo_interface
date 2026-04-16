@@ -100,9 +100,9 @@ opt<InspirePose> InspireRetargeter::retarget(const opt<ManusHand>& hand, HandSid
 
 void InspireRetargeter::retarget_loop(
     const std::function<bool()>& stop,
-    const std::function<int()>& collection_id
+    const std::function<int()>&  collection_id,
+    const std::function<bool()>& pause
 ) {
-
     while (auto pose = manus_.wait_for_next(stop)) {
         auto& [left, right] = *pose;
 
@@ -113,7 +113,7 @@ void InspireRetargeter::retarget_loop(
         left_target && left_hand_.SetPosition(*left_target);
         right_target && right_hand_.SetPosition(*right_target);
 
-        if (hand_csv_) {
+        if (!pause() && hand_csv_) {
             hand_csv_.write_line(
                 format_line(collection_id(), Time::ts(), left_target, right_target));
         }

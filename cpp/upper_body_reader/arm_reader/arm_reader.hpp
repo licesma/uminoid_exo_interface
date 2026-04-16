@@ -37,8 +37,9 @@ class ArmReader {
 
   /** Blocks on wait_for_next() in a loop, writing each reading to csv_path.
    *  Returns when the arm stops or stop_requested() returns true. */
-  void collect_loop(const std::function<int()>& collection_id,
-                    const std::function<bool()>& stop);
+  void collect_loop(const std::function<int()>&  collection_id,
+                    const std::function<bool()>& stop,
+                    const std::function<bool()>& pause = [] { return false; });
 
   void stop();
 

@@ -65,13 +65,14 @@ void UpperBodyReader::PrintRaw() const {
 }
 
 void UpperBodyReader::collect_loop(
-    const std::function<int()>& collection_id,
-    const std::function<bool()>& stop) {
+    const std::function<int()>&  collection_id,
+    const std::function<bool()>& stop,
+    const std::function<bool()>& pause) {
   std::thread left_thread([&] {
-    left.collect_loop(collection_id, stop);
+    left.collect_loop(collection_id, stop, pause);
   });
   std::thread right_thread([&] {
-    right.collect_loop(collection_id, stop);
+    right.collect_loop(collection_id, stop, pause);
   });
 
   left_thread.join();

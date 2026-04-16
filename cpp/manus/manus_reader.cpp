@@ -1,17 +1,26 @@
 #include "manus_reader.hpp"
 #include <sstream>
+#include <stdexcept>
 
 ManusReader::ManusReader(const std::string& left_address,
-                         const std::string& right_address)
+                         const std::string& right_address,
+                         const std::function<void(const std::string&)>& raise_error
+                        )
     : ctx_(1),
       left_sock_(ctx_, zmq::socket_type::pull),
-      right_sock_(ctx_, zmq::socket_type::pull)
+      right_sock_(ctx_, zmq::socket_type::pull),
+      raise_error_(raise_error)
 {
-    left_sock_.set(zmq::sockopt::conflate, 1);
-    left_sock_.connect(left_address);
+    try {
+        left_sock_.set(zmq::sockopt::conflate, 1);
+        left_sock_.connect(left_address);
 
-    right_sock_.set(zmq::sockopt::conflate, 1);
-    right_sock_.connect(right_address);
+        right_sock_.set(zmq::sockopt::conflate, 1);
+        right_sock_.connect(right_address);
+    } catch (const zmq::error_t& e) {
+        if (raise_error_) raise_error_(std::string("[ManusReader] connect failed: ") + e.what());
+        return;
+    }
 
     thread_ = std::thread(&ManusReader::loop, this);
 }
@@ -46,31 +55,32 @@ void ManusReader::loop() {
         { right_sock_.handle(), 0, ZMQ_POLLIN, 0 },
     };
 
-    while (running_.load()) {
-        try {
-            zmq::poll(items, 2, std::chrono::milliseconds(100));
-        } catch (const zmq::error_t&) {
-            break;
-        }
+    try {
+        while (running_.load()) {
+            if (zmq::poll(items, 2, std::chrono::milliseconds(manus_defaults::POLL_MS)) == 0)
+                throw std::runtime_error("No data for " + std::to_string(manus_defaults::POLL_MS) + "ms — publisher dead?");
 
-        zmq::message_t msg;
-        std::lock_guard<std::mutex> guard(lock_);
+            zmq::message_t msg;
+            std::lock_guard<std::mutex> guard(lock_);
 
-        if (items[0].revents & ZMQ_POLLIN) {
-            (void)left_sock_.recv(msg, zmq::recv_flags::none);
-            left_ = parse_zmq(msg.to_string(), HandSide::LEFT);
-            new_data_ = true;
-        }
+            if (items[0].revents & ZMQ_POLLIN) {
+                (void)left_sock_.recv(msg, zmq::recv_flags::none);
+                left_ = parse_zmq(msg.to_string(), HandSide::LEFT);
+                new_data_ = true;
+            }
 
-        if (items[1].revents & ZMQ_POLLIN) {
-            (void)right_sock_.recv(msg, zmq::recv_flags::none);
-            right_ = parse_zmq(msg.to_string(), HandSide::RIGHT);
-            new_data_ = true;
-        }
+            if (items[1].revents & ZMQ_POLLIN) {
+                (void)right_sock_.recv(msg, zmq::recv_flags::none);
+                right_ = parse_zmq(msg.to_string(), HandSide::RIGHT);
+                new_data_ = true;
+            }
 
-        if (new_data_) {
-            cv_.notify_one();
+            if (new_data_) {
+                cv_.notify_one();
+            }
         }
+    } catch (const std::exception& e) {
+        if (raise_error_) raise_error_(std::string("[ManusReader] ") + e.what());
     }
 }
 

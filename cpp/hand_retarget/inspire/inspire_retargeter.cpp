@@ -51,7 +51,7 @@ InspireRetargeter::InspireRetargeter(
       left_hand_(left_serial_, id),
       right_hand_(right_serial_, id),
       recording_label_(recording_label),
-      manus_()
+      manus_(manus_defaults::LEFT_ADDRESS, manus_defaults::RIGHT_ADDRESS, raise_error)
 {
     YAML::Node config = YAML::LoadFile(BOUNDS_PATH);
     left_bounds_  = load_bounds(config["left"]);

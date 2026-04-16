@@ -11,8 +11,12 @@ int main() try
 {
     std::signal(SIGINT, sigint_handler);
 
-    CameraRecorder recorder("camera_test", 30);
-    recorder.collect_loop([] { return 0; }, [] { return !running; });
+    CameraRecorder recorder("camera_test");
+    recorder.collect_loop(
+        [] { return 0; },
+        [] { return !running; },
+        [](const std::string& msg) { std::cerr << msg << std::endl; }
+    );
     return EXIT_SUCCESS;
 }
 catch (const rs2::error& e)

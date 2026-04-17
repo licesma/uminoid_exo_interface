@@ -1,6 +1,7 @@
 upper_body:
-  left_device: "/dev/ttyUSB3"
-  right_device: "/dev/ttyUSB2"
+  # Symlinks created by udev/99-uminoid-arms.rules (matched by FTDI serial).
+  left_device:  "/dev/left_arm"
+  right_device: "/dev/right_arm"
   baudrate: 1000000
 
 inspire:

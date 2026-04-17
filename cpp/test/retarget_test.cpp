@@ -10,13 +10,13 @@ static void signal_handler(int) { running.store(false); }
 int main(int argc, char** argv) {
     std::signal(SIGINT, signal_handler);
 
-    const std::string left_device  = argc > 1 ? argv[1] : "/dev/ttyUSB0";
-    const std::string right_device = argc > 2 ? argv[2] : "/dev/ttyUSB1";
+    const uint8_t left_id  = argc > 1 ? static_cast<uint8_t>(std::stoi(argv[1])) : 1;
+    const uint8_t right_id = argc > 2 ? static_cast<uint8_t>(std::stoi(argv[2])) : 2;
 
-    std::cout << "Retarget loop: left_hand=" << left_device
-              << " right_hand=" << right_device << std::endl;
+    std::cout << "Retarget loop: left_id=" << int(left_id)
+              << " right_id=" << int(right_id) << std::endl;
 
-    InspireRetargeter retargeter(left_device, right_device);
+    InspireRetargeter retargeter(left_id, right_id);
     retargeter.retarget_loop([] { return !running.load(); });
 
     return 0;

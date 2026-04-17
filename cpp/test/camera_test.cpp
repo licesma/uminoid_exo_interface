@@ -11,11 +11,11 @@ int main() try
 {
     std::signal(SIGINT, sigint_handler);
 
-    CameraRecorder recorder("camera_test");
+    CameraRecorder recorder("camera_test",
+        [](const std::string& msg) { std::cerr << msg << std::endl; });
     recorder.collect_loop(
         [] { return 0; },
-        [] { return !running; },
-        [](const std::string& msg) { std::cerr << msg << std::endl; }
+        [] { return !running; }
     );
     return EXIT_SUCCESS;
 }

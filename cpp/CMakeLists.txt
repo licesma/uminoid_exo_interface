@@ -129,11 +129,17 @@ target_include_directories(camera_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(camera_test PRIVATE camera_recorder)
 
 
+add_executable(collect_cli_test test/collect_cli/main.cpp)
+target_include_directories(collect_cli_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 # DDS-based inspire hand test (communicates via G1 DDS topics)
 add_executable(inspire_g1_test test/inspire_g1_test.cpp)
 target_link_libraries(inspire_g1_test PRIVATE unitree_sdk2)
 
-add_library(inspire_retargeter OBJECT hand_retarget/inspire/inspire_retargeter.cpp)
+add_library(inspire_retargeter OBJECT
+  hand_retarget/inspire/inspire_retargeter.cpp
+  hand_retarget/inspire/inspire_port_resolver.cpp
+)
 target_include_directories(inspire_retargeter PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)

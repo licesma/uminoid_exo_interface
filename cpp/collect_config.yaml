@@ -4,5 +4,7 @@ upper_body:
   baudrate: 1000000
 
 inspire:
-  left_device: "/dev/ttyUSB0"
-  right_device: "/dev/ttyUSB1"
+  # HAND_IDs assigned via set_inspire_id.py (run once per hand).
+  # Factory default is 1; flash the right hand to 2.
+  left_id: 1
+  right_id: 2

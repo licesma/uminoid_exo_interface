@@ -40,16 +40,26 @@ std::string format_line(int collection_id,
 }  // namespace
 
 InspireRetargeter::InspireRetargeter(
-    const std::string& left_device,
-    const std::string& right_device,
+    uint8_t left_id,
+    uint8_t right_id,
     const std::string& recording_label,
-    const std::function<void(const std::string&)>& raise_error,
-    uint8_t id
+    const std::function<void(const std::string&)>& raise_error
 )
-    : left_serial_(std::make_shared<SerialPort>(left_device, B115200, 200, raise_error)),
-      right_serial_(std::make_shared<SerialPort>(right_device, B115200, 200, raise_error)),
-      left_hand_(left_serial_, id),
-      right_hand_(right_serial_, id),
+    : InspireRetargeter(inspire_port_resolver::resolve(left_id, right_id, raise_error),
+                        left_id, right_id, recording_label, raise_error)
+{}
+
+InspireRetargeter::InspireRetargeter(
+    const inspire_port_resolver::Assignment& ports,
+    uint8_t left_id,
+    uint8_t right_id,
+    const std::string& recording_label,
+    const std::function<void(const std::string&)>& raise_error
+)
+    : left_serial_(std::make_shared<SerialPort>(ports.left_device, B115200, 200, raise_error)),
+      right_serial_(std::make_shared<SerialPort>(ports.right_device, B115200, 200, raise_error)),
+      left_hand_(left_serial_, left_id),
+      right_hand_(right_serial_, right_id),
       recording_label_(recording_label),
       manus_(manus_defaults::LEFT_ADDRESS, manus_defaults::RIGHT_ADDRESS, raise_error)
 {

@@ -18,22 +18,24 @@ namespace config {
     inline const std::string left_arm   = yaml["upper_body"]["left_device"].as<std::string>();
     inline const std::string right_arm  = yaml["upper_body"]["right_device"].as<std::string>();
     inline const int         baudrate   = yaml["upper_body"]["baudrate"].as<int>();
-    inline const std::string left_hand  = yaml["inspire"]["left_device"].as<std::string>();
-    inline const std::string right_hand = yaml["inspire"]["right_device"].as<std::string>();
+
+    inline const uint8_t inspire_left_id  = yaml["inspire"]["left_id"].as<int>();
+    inline const uint8_t inspire_right_id = yaml["inspire"]["right_id"].as<int>();
 }
 
 int main() {
     const std::string recording_label = generate_recording_label();
 
     std::atomic<bool> running{true};
-    std::atomic<bool> _pause{false};
+    std::atomic<bool> _paused{false};
     std::atomic<int>  _collection_id{1};
     std::string       error_msg;
 
     auto stop          = [&running]        { return !running.load(); };
-    auto paused        = [&_pause]        { return _pause.load(); };
+    auto paused        = [&_paused]        { return _paused.load(); };
     auto collection_id = [&_collection_id] { return _collection_id.load(); };
     auto raise_error   = [&](const std::string& msg) {
+        if (!error_msg.empty()) return;  // first error wins
         error_msg = msg;
         ui::cancel_current(_collection_id.load());
         running.store(false);
@@ -42,11 +44,11 @@ int main() {
     std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label);
 
     UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
-    InspireRetargeter inspire(config::left_hand, config::right_hand, recording_label, raise_error);
+    InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
     CameraRecorder    camera(recording_label, raise_error);
 
     std::cout << "  " << recording_label
-              << "   space/arrows → next collection   q/ctrl+c → stop\n";
+              << "   space → pause/resume   q → stop\n";
 
     ui::add_collection(_collection_id.load());
 
@@ -73,19 +75,17 @@ int main() {
                 ui::complete_current(_collection_id.load());
                 running.store(false);
             } else if (key == ' ') {
-                // Complete current, queue next (pause saving until arrow)
-                ui::complete_current(_collection_id.load());
-                _collection_id.fetch_add(1);
-                ui::add_next(_collection_id.load());
-                _pause.store(true);
-            } else if (key == '\033') {
-                // Arrow keys: start the queued Next collection
-                char seq[2] = {};
-                if (read(STDIN_FILENO, &seq[0], 1) > 0 && seq[0] == '[')
-                    if (read(STDIN_FILENO, &seq[1], 1) > 0 &&
-                        (seq[1] == 'A' || seq[1] == 'B' || seq[1] == 'C' || seq[1] == 'D'))
-                        if (ui::start_next_collection())
-                            _pause.store(false);
+                if (!_paused.load()) {
+                    // Collecting → pause: complete current, queue next
+                    ui::complete_current(_collection_id.load());
+                    _collection_id.fetch_add(1);
+                    ui::add_next(_collection_id.load());
+                    _paused.store(true);
+                } else {
+                    // Paused → resume: start the queued Next collection
+                    if (ui::start_next_collection())
+                        _paused.store(false);
+                }
             }
         }
     }

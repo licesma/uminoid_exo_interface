@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hand_retarget/inspire/inspire_port_resolver.hpp"
 #include "inspire.h"
 #include "SerialPort.h"
 #include "manus/manus_reader.hpp"
@@ -17,12 +18,12 @@ using InspirePose = Eigen::Matrix<double, 6, 1>;
 
 class InspireRetargeter {
 public:
+    // Resolves which /dev/ttyUSB* port hosts which hand by probing HAND_IDs
     InspireRetargeter(
-        const std::string& left_device,
-        const std::string& right_device,
+        uint8_t left_id,
+        uint8_t right_id,
         const std::string& recording_label = "",
-        const std::function<void(const std::string&)>& raise_error = nullptr,
-        uint8_t id = 1
+        const std::function<void(const std::string&)>& raise_error = nullptr
     );
 
     void retarget_loop(
@@ -32,6 +33,15 @@ public:
     );
 
 private:
+    // Delegated-to by the public constructor; lets us resolve port paths first.
+    InspireRetargeter(
+        const inspire_port_resolver::Assignment& ports,
+        uint8_t left_id,
+        uint8_t right_id,
+        const std::string& recording_label,
+        const std::function<void(const std::string&)>& raise_error
+    );
+
     opt<InspirePose> retarget(const opt<ManusHand>& hand, HandSide side) const;
     struct FingerBounds { double low, high; };
     struct HandBounds {

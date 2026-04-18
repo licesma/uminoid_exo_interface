@@ -11,87 +11,43 @@ using namespace camera_constants;
 #include <sstream>
 #include <iomanip>
 #include <filesystem>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "utils/stb_image_write.h"
+#include <fstream>
 
 CameraRecorder::CameraRecorder(const std::string& recording_label,
                                const std::function<void(const std::string&)>& raise_error)
     : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
       raise_error_(raise_error),
-      csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms") {
-    batch_.reserve(SAVE_BATCH_SIZE);
-
+      csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms"),
+      pipe_(context_) {
     try {
         std::filesystem::create_directories(output_dir_ + "/frames");
 
+        if (context_.query_devices().size() == 0) {
+            raise_error_("[Camera] No camera connected");
+            return;
+        }
+
+        context_.set_devices_changed_callback([this](rs2::event_information info) {
+            if (info.was_removed(device_)) {
+                raise_error_("[Camera] Camera disconnected");
+            }
+        });
+
         rs2::config cfg;
         cfg.enable_stream(RS2_STREAM_COLOR, FRAME_WIDTH, FRAME_HEIGHT, RS2_FORMAT_RGB8, FRAMERATE);
-        pipe_.start(cfg);
+        device_ = pipe_.start(cfg).get_device();
     } catch (const std::exception& e) {
         raise_error_(std::string("[Camera] ") + e.what());
     }
 }
 
-CameraRecorder::~CameraRecorder() {
-    stop_writer();
-}
+bool CameraRecorder::write_frame(const std::string& filename, const uint8_t* data) const {
+    std::ofstream out(filename, std::ios::binary);
+    if (!out) return false;
 
-void CameraRecorder::start_writer() {
-    writer_ = std::thread([this] {
-        while (true) {
-            std::vector<FrameData> batch;
-
-            {
-                std::unique_lock<std::mutex> lock(mtx_);
-                cv_.wait(lock, [this] { return !write_queue_.empty() || stop_writer_; });
-
-                if (stop_writer_ && write_queue_.empty()) break;
-
-                if (write_queue_.size() >= MAX_WRITE_QUEUE_SIZE) {
-                    raise_error_("[Camera] Write queue full — disk I/O can't keep up");
-                    return;
-                }
-
-                batch = std::move(write_queue_.front());
-                write_queue_.pop();
-            }
-
-            for (auto& f : batch) {
-                int ok = stbi_write_png(f.filename.c_str(),
-                                        FRAME_WIDTH, FRAME_HEIGHT,
-                                        FRAME_BYTES_PER_PIXEL,
-                                        f.pixels.data(),
-                                        FRAME_STRIDE);
-                if (!ok) {
-                    raise_error_("[Camera] Failed to write " + f.filename);
-                    return;
-                }
-            }
-        }
-    });
-}
-
-void CameraRecorder::flush_batch() {
-    if (batch_.empty()) return;
-
-    std::lock_guard<std::mutex> lock(mtx_);
-    write_queue_.push(std::move(batch_));
-    batch_.clear();
-    batch_.reserve(SAVE_BATCH_SIZE);
-    cv_.notify_one();
-}
-
-void CameraRecorder::stop_writer() {
-    if (!writer_.joinable()) return;
-
-    flush_batch();
-
-    {
-        std::lock_guard<std::mutex> lock(mtx_);
-        stop_writer_ = true;
-    }
-    cv_.notify_one();
-    writer_.join();
+    out.write(reinterpret_cast<const char*>(data),
+              static_cast<std::streamsize>(FRAME_SIZE));
+    return static_cast<bool>(out);
 }
 
 void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
@@ -99,14 +55,29 @@ void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
                                   const std::function<bool()>& pause) {
     try {
         const std::string frames_dir = output_dir_ + "/frames";
+        auto camera_disconnected = [this] {
+            return !device_ || !device_.is_connected();
+        };
 
-        for (int i = 0; i < WARMUP_COUNT; ++i) pipe_.wait_for_frames(FRAME_TIMEOUT_MS);
+        for (int i = 0; i < WARMUP_COUNT && !stop(); ++i) {
+            rs2::frameset frames;
+            if (!pipe_.try_wait_for_frames(&frames, FRAME_TIMEOUT_MS) && camera_disconnected()) {
+                raise_error_("[Camera] Camera disconnected");
+                break;
+            }
+        }
 
-        start_writer();
         int frame_count = 0;
 
         while (!stop()) {
-            rs2::frameset frames = pipe_.wait_for_frames(FRAME_TIMEOUT_MS);
+            rs2::frameset frames;
+            if (!pipe_.try_wait_for_frames(&frames, FRAME_TIMEOUT_MS)) {
+                if (camera_disconnected()) {
+                    raise_error_("[Camera] Camera disconnected");
+                    break;
+                }
+                continue;
+            }
             rs2::video_frame color = frames.get_color_frame();
 
             if (!color || pause()) continue;
@@ -123,21 +94,17 @@ void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
             std::ostringstream filename;
             filename << frames_dir << "/frame_"
                      << std::setfill('0') << std::setw(6) << frame_count
-                     << ".png";
+                     << ".raw";
 
-            batch_.push_back({
-                filename.str(),
-                std::vector<uint8_t>(data, data + FRAME_SIZE),
-            });
+            if (!write_frame(filename.str(), data)) {
+                raise_error_("[Camera] Failed to write " + filename.str());
+                break;
+            }
 
             ++frame_count;
-
-            if (static_cast<int>(batch_.size()) >= SAVE_BATCH_SIZE)
-                flush_batch();
         }
 
         csv_.close();
-        stop_writer();
         pipe_.stop();
     } catch (const std::exception& e) {
         raise_error_(std::string("[Camera] ") + e.what());

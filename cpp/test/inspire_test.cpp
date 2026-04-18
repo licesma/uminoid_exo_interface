@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     const std::string device = argc > 1 ? argv[1] : "/dev/ttyUSB0";
     std::cout << "Inspire hand on " << device << std::endl;
 
-    auto serial = std::make_shared<SerialPort>(device, B115200, 200);
+    auto serial = std::make_shared<SerialPort>(device);
     inspire::InspireHand hand(serial, 1);
 
     std::signal(SIGINT, signal_handler);

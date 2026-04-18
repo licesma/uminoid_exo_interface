@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -17,10 +18,14 @@ namespace {
 
 // HAND_ID register lives at 0x03E8. Frame layout follows the Inspire RH56
 // proprietary protocol (see user manual §2.2 / inspire.h).
-constexpr uint8_t  HAND_ID_ADDR_L = 0xE8;
-constexpr uint8_t  HAND_ID_ADDR_H = 0x03;
+constexpr uint8_t  HAND_ID_ADDR_L    = 0xE8;
+constexpr uint8_t  HAND_ID_ADDR_H    = 0x03;
 constexpr speed_t  BAUDRATE          = B115200;
 constexpr int      PROBE_TIMEOUT_MS  = 50;
+
+// USB vendor ID of the CH340 (WCH) USB-serial chip used by the Inspire hands.
+// Filtering on this prevents probing (and clobbering) FTDI-based adapters.
+constexpr const char* INSPIRE_USB_VENDOR = "1a86";
 
 uint8_t checksum(const uint8_t* data, size_t len) {
     // Low byte of sum over data[2 .. len-2] (skip 0xEB 0x90 header and cksum slot).
@@ -91,12 +96,22 @@ std::optional<uint8_t> probe_hand_id(int fd, uint8_t expected_id) {
     return resp[2];
 }
 
-std::vector<std::string> list_serial_ports() {
+// Read the USB vendor ID of the device backing /dev/ttyUSBx via sysfs.
+std::string read_usb_vendor(const std::string& tty_name) {
+    std::ifstream f("/sys/class/tty/" + tty_name + "/device/../../idVendor");
+    std::string vendor;
+    f >> vendor;
+    return vendor;
+}
+
+std::vector<std::string> list_inspire_ports() {
     std::vector<std::string> ports;
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator("/dev", ec)) {
         const auto name = entry.path().filename().string();
-        if (name.rfind("ttyUSB", 0) == 0) ports.push_back(entry.path().string());
+        if (name.rfind("ttyUSB", 0) != 0)                   continue;
+        if (read_usb_vendor(name) != INSPIRE_USB_VENDOR)    continue;
+        ports.push_back(entry.path().string());
     }
     std::sort(ports.begin(), ports.end());
     return ports;
@@ -120,7 +135,7 @@ Assignment resolve(
 
     std::unordered_map<uint8_t, std::string> port_for_id;
 
-    for (const auto& port : list_serial_ports()) {
+    for (const auto& port : list_inspire_ports()) {
         ScopedFd fd(open_port(port));
         if (fd.fd < 0) continue;
 

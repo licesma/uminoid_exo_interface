@@ -16,6 +16,9 @@ static const std::string BOUNDS_PATH =
         .lexically_normal()
         .string();
 
+constexpr int INSPIRE_SERIAL_TIMEOUT_MS = 200;
+constexpr int INSPIRE_MAX_CONSECUTIVE_TIMEOUTS = 5;
+
 
 std::string csv_header() {
     return "collection_id,timestamp,"
@@ -56,8 +59,8 @@ InspireRetargeter::InspireRetargeter(
     const std::string& recording_label,
     const std::function<void(const std::string&)>& raise_error
 )
-    : left_serial_(std::make_shared<SerialPort>(ports.left_device, B115200, 200, raise_error)),
-      right_serial_(std::make_shared<SerialPort>(ports.right_device, B115200, 200, raise_error)),
+    : left_serial_(std::make_shared<SerialPort>(ports.left_device, raise_error)),
+      right_serial_(std::make_shared<SerialPort>(ports.right_device, raise_error)),
       left_hand_(left_serial_, left_id),
       right_hand_(right_serial_, right_id),
       recording_label_(recording_label),

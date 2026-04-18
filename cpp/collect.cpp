@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <yaml-cpp/yaml.h>
@@ -29,22 +30,27 @@ int main() {
     std::atomic<bool> running{true};
     std::atomic<bool> _paused{false};
     std::atomic<int>  _collection_id{1};
+    std::atomic<bool> error_reported{false};
     std::string       error_msg;
+    std::mutex        error_msg_mutex;
 
     auto stop          = [&running]        { return !running.load(); };
     auto paused        = [&_paused]        { return _paused.load(); };
     auto collection_id = [&_collection_id] { return _collection_id.load(); };
     auto raise_error   = [&](const std::string& msg) {
-        if (!error_msg.empty()) return;  // first error wins
-        error_msg = msg;
+        if (error_reported.exchange(true)) return;
+        {
+            std::lock_guard<std::mutex> lock(error_msg_mutex);
+            error_msg = msg;
+        }
         ui::cancel_current(_collection_id.load());
         running.store(false);
     };
 
     std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label);
 
-    UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
-    InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
+    // UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
+    //InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
     CameraRecorder    camera(recording_label, raise_error);
 
     std::cout << "  " << recording_label
@@ -53,8 +59,8 @@ int main() {
     ui::add_collection(_collection_id.load());
 
     std::thread camera_thread    ([&] { camera.collect_loop(collection_id, stop, paused); });
-    std::thread upper_body_thread([&] { upper_body.collect_loop(collection_id, stop, paused); });
-    std::thread inspire_thread   ([&] { inspire.retarget_loop(stop, collection_id, paused); });
+    // std::thread upper_body_thread([&] { upper_body.collect_loop(collection_id, stop, paused); });
+    //std::thread inspire_thread   ([&] { inspire.retarget_loop(stop, collection_id, paused); });
 
     std::thread display_thread([&] {
         while (running.load()) {
@@ -92,11 +98,13 @@ int main() {
 
     display_thread.join();
     camera_thread.join();
-    upper_body_thread.join();
-    inspire_thread.join();
+    // upper_body_thread.join();
+    //inspire_thread.join();
 
-    if (!error_msg.empty())
+    if (error_reported.load()) {
+        std::lock_guard<std::mutex> lock(error_msg_mutex);
         std::cerr << "\n[FATAL] " << error_msg << "\n";
+    }
 
     return 0;
 }

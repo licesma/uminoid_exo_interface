@@ -21,7 +21,7 @@ constexpr int INSPIRE_MAX_CONSECUTIVE_TIMEOUTS = 5;
 
 
 std::string csv_header() {
-    return "collection_id,timestamp,"
+    return "collection_id,host_timestamp,"
            "left_pinky,left_ring,left_middle,left_index,left_thumb_bend,left_thumb_rotation,"
            "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
 }

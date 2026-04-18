@@ -17,7 +17,7 @@ CameraRecorder::CameraRecorder(const std::string& recording_label,
                                const std::function<void(const std::string&)>& raise_error)
     : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
       raise_error_(raise_error),
-      csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp_ms"),
+      csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp"),
       pipe_(context_) {
     try {
         std::filesystem::create_directories(output_dir_ + "/frames");
@@ -81,12 +81,8 @@ void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
             rs2::video_frame color = frames.get_color_frame();
 
             if (!color || pause()) continue;
-
-            double camera_ts = color.get_timestamp();
-            uint64_t host_ts = Time::ts();
-
             std::ostringstream row;
-            row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << camera_ts << "," << host_ts;
+            row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << color.get_timestamp() << "," << Time::ts();
             csv_.write_line(row.str());
 
             const uint8_t* data = static_cast<const uint8_t*>(color.get_data());

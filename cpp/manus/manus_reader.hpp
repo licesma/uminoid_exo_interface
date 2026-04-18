@@ -1,20 +1,17 @@
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
-#include <zmq.hpp>
 
+#include "manus_glove_reader.hpp"
 #include "manus_hand.hpp"
 
 namespace manus_defaults {
     inline const std::string LEFT_ADDRESS  = "tcp://localhost:8002";
     inline const std::string RIGHT_ADDRESS = "tcp://localhost:8003";
-    constexpr int POLL_MS = 100;
 }
 
 class ManusReader {
@@ -35,20 +32,14 @@ public:
     void stop();
 
 private:
-    static ManusHand parse_zmq(const std::string& msg, HandSide side);
-    void loop();
+    void notify_change();
+    bool has_new_data_locked() const;
+    bool any_reader_stopped_locked() const;
 
-    zmq::context_t ctx_;
-    zmq::socket_t  left_sock_;
-    zmq::socket_t  right_sock_;
-
-    std::mutex              lock_;
+    mutable std::mutex      mutex_;
     std::condition_variable cv_;
-    bool                    new_data_{false};
-    std::optional<ManusHand> left_;
-    std::optional<ManusHand> right_;
-    std::atomic<bool>       running_{true};
-    std::function<void(const std::string&)> raise_error_;
-
-    std::thread thread_;
+    uint64_t                left_consumed_seq_{0};
+    uint64_t                right_consumed_seq_{0};
+    ManusGloveReader        left_;
+    ManusGloveReader        right_;
 };

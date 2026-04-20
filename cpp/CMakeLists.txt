@@ -68,7 +68,10 @@ target_link_libraries(camera_recorder PUBLIC realsense2)
 # manus hand reader
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ZMQ REQUIRED libzmq)
-add_library(manus_reader OBJECT manus/manus_reader.cpp manus/manus_hand.cpp)
+add_library(manus_reader OBJECT
+  manus/manus_reader.cpp
+  manus/manus_glove_reader.cpp
+  manus/manus_hand.cpp)
 target_include_directories(manus_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
 target_link_libraries(manus_reader PUBLIC ${ZMQ_LIBRARIES})
 

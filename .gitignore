@@ -2,6 +2,7 @@ cpp/build/
 cpp/.cache/
 .clangd
 .vscode
+*.pyc
 __pycache__/
 data/
 g1_files

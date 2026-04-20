@@ -141,8 +141,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Interactively calibrate Dynamixel joint bounds."
     )
-    parser.add_argument("--left-port", default="/dev/ttyUSB0", help="Left arm serial port")
-    parser.add_argument("--right-port", default="/dev/ttyUSB1", help="Right arm serial port")
+    parser.add_argument("--left-port", default="/dev/left_arm", help="Left arm serial port")
+    parser.add_argument("--right-port", default="/dev/right_arm", help="Right arm serial port")
     parser.add_argument("--baudrate", type=int, default=BAUDRATE, help="Dynamixel bus baudrate")
     return parser.parse_args()
 

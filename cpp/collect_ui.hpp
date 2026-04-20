@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <mutex>
@@ -122,6 +123,20 @@ namespace ui {
                 r.status        = CollectionStatus::Cancelled;
                 return;
             }
+        }
+    }
+
+    inline void save_status_csv(const std::string& path) {
+        std::lock_guard<std::mutex> lock(mtx);
+        std::ofstream f(path);
+        f << "collection_id,status\n";
+        for (const auto& r : records) {
+            if (r.status == CollectionStatus::Next) continue;
+            std::string s;
+            if      (r.status == CollectionStatus::Completed)  s = "completed";
+            else if (r.status == CollectionStatus::Cancelled)  s = "cancelled";
+            else                                               s = "in_progress";
+            f << r.id << "," << s << "\n";
         }
     }
 } // namespace ui

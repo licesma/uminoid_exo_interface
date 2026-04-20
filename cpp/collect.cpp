@@ -49,18 +49,18 @@ int main() {
 
     std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label);
 
-    // UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
-    //InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
+     UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
+    InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
     CameraRecorder    camera(recording_label, raise_error);
 
     std::cout << "  " << recording_label
-              << "   space → pause/resume   q → stop\n";
+              << "   space → next   x → cancel   q → stop\n";
 
     ui::add_collection(_collection_id.load());
 
     std::thread camera_thread    ([&] { camera.collect_loop(collection_id, stop, paused); });
-    // std::thread upper_body_thread([&] { upper_body.collect_loop(collection_id, stop, paused); });
-    //std::thread inspire_thread   ([&] { inspire.retarget_loop(stop, collection_id, paused); });
+    std::thread upper_body_thread([&] { upper_body.collect_loop(collection_id, stop, paused); });
+    std::thread inspire_thread   ([&] { inspire.retarget_loop(stop, collection_id, paused); });
 
     std::thread display_thread([&] {
         while (running.load()) {
@@ -92,13 +92,23 @@ int main() {
                     if (ui::start_next_collection())
                         _paused.store(false);
                 }
+            } else if (key == 'x' || key == 'X') {
+                if (!_paused.load()) {
+                    // Collecting → cancel current, queue next
+                    ui::cancel_current(_collection_id.load());
+                    _collection_id.fetch_add(1);
+                    ui::add_next(_collection_id.load());
+                    _paused.store(true);
+                }
             }
         }
     }
 
+    ui::save_status_csv(repo_constants::DATA_DIR + "/" + recording_label + "/collection_status.csv");
+
     display_thread.join();
-    camera_thread.join();
-    // upper_body_thread.join();
+    //camera_thread.join();
+    upper_body_thread.join();
     //inspire_thread.join();
 
     if (error_reported.load()) {

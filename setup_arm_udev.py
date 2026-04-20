@@ -20,7 +20,8 @@ VENDOR_ID  = "0403"  # FTDI
 
 def make_rule(arm_name: str, serial: str) -> str:
     return (f'SUBSYSTEM=="tty", ATTRS{{idVendor}}=="{VENDOR_ID}", '
-            f'ATTRS{{serial}}=="{serial}", SYMLINK+="{arm_name}"')
+            f'ATTRS{{serial}}=="{serial}", SYMLINK+="{arm_name}", '
+            f'RUN+="/bin/sh -c \'echo 1 > /sys/bus/usb-serial/devices/%k/latency_timer\'"')
 
 
 def load_rules() -> dict[str, str]:

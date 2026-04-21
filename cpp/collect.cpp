@@ -1,4 +1,5 @@
 #include "camera/camera_recorder.hpp"
+#include "camera/preview_server.hpp"
 #include "collect_ui.hpp"
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
 #include "upper_body_reader/upper_body_reader.hpp"
@@ -7,6 +8,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -22,6 +24,22 @@ namespace config {
 
     inline const uint8_t inspire_left_id  = yaml["inspire"]["left_id"].as<int>();
     inline const uint8_t inspire_right_id = yaml["inspire"]["right_id"].as<int>();
+
+    // Preview is optional; an empty/missing bind_host disables it entirely.
+    inline PreviewServer::Config load_preview_cfg() {
+        PreviewServer::Config c;
+        if (!yaml["preview"]) return c;
+        const auto& p = yaml["preview"];
+        if (p["bind_host"])    c.bind_host    = p["bind_host"].as<std::string>();
+        if (p["port"])         c.port         = p["port"].as<int>();
+        if (p["width"])        c.out_width    = p["width"].as<int>();
+        if (p["height"])       c.out_height   = p["height"].as<int>();
+        if (p["jpeg_quality"]) c.jpeg_quality = p["jpeg_quality"].as<int>();
+        if (p["max_fps"])      c.max_fps      = p["max_fps"].as<int>();
+        return c;
+    }
+    inline const PreviewServer::Config preview_cfg = load_preview_cfg();
+    inline const bool preview_enabled = !preview_cfg.bind_host.empty();
 }
 
 int main() {
@@ -49,9 +67,17 @@ int main() {
 
     std::filesystem::create_directories(repo_constants::DATA_DIR + "/" + recording_label);
 
+    std::unique_ptr<PreviewServer> preview;
+    if (config::preview_enabled) {
+        preview = std::make_unique<PreviewServer>(config::preview_cfg, raise_error);
+        preview->start();
+        std::cout << "  preview: http://" << config::preview_cfg.bind_host
+                  << ":" << config::preview_cfg.port << "/\n";
+    }
+
      UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
     InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
-    CameraRecorder    camera(recording_label, raise_error);
+    CameraRecorder    camera(recording_label, raise_error, preview.get());
 
     std::cout << "  " << recording_label
               << "   space → next   x → cancel   q → stop\n";
@@ -110,6 +136,8 @@ int main() {
     //camera_thread.join();
     upper_body_thread.join();
     //inspire_thread.join();
+
+    if (preview) preview->stop();
 
     if (error_reported.load()) {
         std::lock_guard<std::mutex> lock(error_msg_mutex);

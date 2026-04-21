@@ -9,3 +9,15 @@ inspire:
   # Factory default is 1; flash the right hand to 2.
   left_id: 1
   right_id: 2
+
+# Optional view-only MJPEG preview of the RealSense RGB stream. Intended to be
+# reached over Tailscale from another machine. Leave bind_host empty (or omit
+# the whole block) to disable. Recommended: set bind_host to this host's
+# tailscale0 IP so the stream is only reachable from the tailnet.
+preview:
+  bind_host: ""        # e.g. "100.84.51.76" (this host's Tailscale IP)
+  port: 8080
+  width: 320
+  height: 240
+  jpeg_quality: 40
+  max_fps: 10

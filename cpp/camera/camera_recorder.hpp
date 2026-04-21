@@ -6,6 +6,8 @@
 
 #include "utils/csv_saver.hpp"
 
+class PreviewServer;
+
 namespace camera_constants {
     //General
     constexpr int FRAMERATE = 30;
@@ -22,7 +24,8 @@ namespace camera_constants {
 class CameraRecorder {
 public:
     CameraRecorder(const std::string& recording_label,
-                   const std::function<void(const std::string&)>& raise_error);
+                   const std::function<void(const std::string&)>& raise_error,
+                   PreviewServer* preview = nullptr);
 
     void collect_loop(const std::function<int()>&  collection_id,
                       const std::function<bool()>& stop,
@@ -37,4 +40,5 @@ private:
     rs2::context context_;
     rs2::pipeline pipe_;
     rs2::device device_;
+    PreviewServer* preview_ = nullptr; 
 };

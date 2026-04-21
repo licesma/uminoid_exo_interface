@@ -2,6 +2,7 @@
 
 using namespace camera_constants;
 
+#include "camera/preview_server.hpp"
 #include "utils/repo_constants.hpp"
 #include "utils/time.hpp"
 
@@ -13,12 +14,24 @@ using namespace camera_constants;
 #include <filesystem>
 #include <fstream>
 
+namespace {
+    void push_to_preview(PreviewServer* preview, const rs2::video_frame& frame) {
+        if (!preview) return;
+        preview->push_rgb(static_cast<const uint8_t*>(frame.get_data()),
+                          frame.get_width(),
+                          frame.get_height(),
+                          frame.get_stride_in_bytes());
+    }
+}
+
 CameraRecorder::CameraRecorder(const std::string& recording_label,
-                               const std::function<void(const std::string&)>& raise_error)
+                               const std::function<void(const std::string&)>& raise_error,
+                               PreviewServer* preview)
     : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
       raise_error_(raise_error),
       csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp"),
-      pipe_(context_) {
+      pipe_(context_),
+      preview_(preview) {
     try {
         std::filesystem::create_directories(output_dir_ + "/frames");
 
@@ -79,8 +92,10 @@ void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
                 continue;
             }
             rs2::video_frame color = frames.get_color_frame();
-
-            if (!color || pause()) continue;
+            if (!color) continue;
+            push_to_preview(preview_, color);
+            if (pause()) continue;
+            
             std::ostringstream row;
             row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << color.get_timestamp() << "," << Time::ts();
             csv_.write_line(row.str());

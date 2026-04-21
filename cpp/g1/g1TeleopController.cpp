@@ -15,38 +15,14 @@
   "../upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 #endif
 
-namespace {
-
-constexpr uint16_t INVALID_EXO_READING = 5000;
-
-UpperBodyLine compose_upper_body_line(const ArmLine& fresh_line,
-                                      const ArmLine& other_line,
-                                      bool from_left) {
-  UpperBodyLine combined;
-  combined.timestamp = fresh_line.timestamp;
-  combined.host_timestamp = fresh_line.host_timestamp;
-  combined.data.fill(INVALID_EXO_READING);
-
-  const ArmLine& left_line = from_left ? fresh_line : other_line;
-  const ArmLine& right_line = from_left ? other_line : fresh_line;
-
-  for (size_t i = 0; i < ARM_JOINT_COUNT; ++i) {
-    combined.data[i] = left_line.data[i];
-    combined.data[ARM_JOINT_COUNT + i] = right_line.data[i];
-  }
-
-  return combined;
-}
-
-}  // namespace
-
-G1TeleopController::G1TeleopController(std::string networkInterface,
-                                       const std::string& relay_address,
-                                       bool isSimulation,
-                                       const std::string& recording_label)
+G1TeleopController::G1TeleopController(
+    std::string networkInterface, const std::string& relay_address,
+    bool isSimulation, const std::string& recording_label,
+    std::function<int()> collection_id_fn)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(READER_BOUNDS_PATH),
-                  LoadBounds(READER_BOUNDS_PATH), recording_label),
+                  LoadBounds(READER_BOUNDS_PATH), recording_label,
+                  std::move(collection_id_fn)),
       left_(std::make_unique<AS5600Arm>(relay_address, 0)),
       right_(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)),
       stop_requested_(false) {
@@ -57,10 +33,12 @@ G1TeleopController::G1TeleopController(
     std::string networkInterface, const std::string& left_device,
     const std::string& right_device, int baudrate, bool isSimulation,
     const std::string& recording_label,
+    std::function<int()> collection_id_fn,
     const std::function<void(const std::string&)>& raise_error)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(DYNAMIXEL_BOUNDS_PATH),
-                  LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label),
+                  LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label,
+                  std::move(collection_id_fn)),
       left_(left_device.empty()
                 ? nullptr
                 : std::make_unique<DynamixelArm>(left_device, baudrate,
@@ -109,14 +87,6 @@ void G1TeleopController::arm_listener_loop(ArmReader& reader, bool from_left) {
     auto fresh_line = reader.wait_for_next();
     if (!fresh_line) break;
 
-    controller_.process_upper_body_sample(
-        compose_sample(*fresh_line, from_left));
+    controller_.process_arm_sample(*fresh_line, from_left);
   }
-}
-
-UpperBodyLine G1TeleopController::compose_sample(const ArmLine& fresh_line,
-                                                 bool from_left) const {
-  return compose_upper_body_line(fresh_line,
-                                 from_left ? right_.snapshot() : left_.snapshot(),
-                                 from_left);
 }

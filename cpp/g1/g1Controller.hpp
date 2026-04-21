@@ -1,12 +1,14 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
 
 #include "../utils/csv_saver.hpp"
 #include "../utils/metadata_loader.hpp"
+#include "upper_body_reader/arm_reader/skeleton_arm.hpp"
 #include "upper_body_reader/constants.hpp"
 #include "../utils/bounds_loader.hpp"
 #include "g1Robot.hpp"
@@ -27,37 +29,36 @@ struct G1JointReading {
   bool is_valid;
 };
 
-using UpperBodyReadings = std::array<G1JointReading, JOINT_COUNT>;
-
-struct UpperBodyLine {
-  uint64_t timestamp = 0;
-  uint64_t host_timestamp = 0;
-  std::array<uint16_t, JOINT_COUNT> data{};
-};
+using ArmReadings = std::array<G1JointReading, ARM_JOINT_COUNT>;
 
 class G1Controller : public G1Robot {
  private:
   double control_dt_;
   double max_target_velocity_;
   std::array<double, G1_NUM_MOTOR> commanded_targets_;
-  CsvSaver measured_csv_;
-  CsvSaver command_csv_;
+  CsvSaver left_measured_csv_;
+  CsvSaver right_measured_csv_;
+  CsvSaver left_command_csv_;
+  CsvSaver right_command_csv_;
   std::mutex update_mutex_;
   JointsReadingMetadata metadata_;
   JointBounds bounds_;
   JointBounds reader_bounds_;
-  UpperBodyReadings decode_upper_body(const UpperBodyLine& sample) const;
+  std::function<int()> collection_id_fn_;
+  ArmReadings decode_arm(const ArmLine& sample, bool from_left) const;
   double toG1Angle(G1JointReading reading);
-  void record_upper_body(const MotorState& state, const MotorCommand& command);
+  void record_arm(const ArmLine& sample, const MotorState& state,
+                  const MotorCommand& command, bool from_left);
 
  public:
-  G1Controller(std::string networkInterface, bool isSimulation,
-               const JointsReadingMetadata& metadata,
-               const JointBounds& reader_bounds,
-               const std::string& recording_label = "");
+  G1Controller(
+      std::string networkInterface, bool isSimulation,
+      const JointsReadingMetadata& metadata, const JointBounds& reader_bounds,
+      const std::string& recording_label = "",
+      std::function<int()> collection_id_fn = [] { return 0; });
   ~G1Controller() override = default;
 
   bool initialize_targets_from_robot_state(
       const std::function<bool()>& stop_requested);
-  void process_upper_body_sample(const UpperBodyLine& sample);
+  void process_arm_sample(const ArmLine& sample, bool from_left);
 };

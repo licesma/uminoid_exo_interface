@@ -60,10 +60,13 @@ target_compile_definitions(upper_body_reader PRIVATE
   DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 )
 
-# camera recorder
-add_library(camera_recorder OBJECT camera/camera_recorder.cpp)
+# camera recorder (+ in-process MJPEG preview server)
+find_library(JPEG_LIB jpeg REQUIRED)
+add_library(camera_recorder OBJECT
+  camera/camera_recorder.cpp
+  camera/preview_server.cpp)
 target_include_directories(camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(camera_recorder PUBLIC realsense2)
+target_link_libraries(camera_recorder PUBLIC realsense2 ${JPEG_LIB} pthread)
 
 # manus hand reader
 find_package(PkgConfig REQUIRED)

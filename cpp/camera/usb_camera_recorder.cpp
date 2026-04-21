@@ -1,6 +1,7 @@
-#include "camera_recorder.hpp"
+#include "usb_camera_recorder.hpp"
 
-using namespace camera_constants;
+using namespace camera_frame;
+using namespace usb_camera_constants;
 
 #include "camera/preview_server.hpp"
 #include "utils/repo_constants.hpp"
@@ -24,9 +25,9 @@ namespace {
     }
 }
 
-CameraRecorder::CameraRecorder(const std::string& recording_label,
-                               const std::function<void(const std::string&)>& raise_error,
-                               PreviewServer* preview)
+UsbCameraRecorder::UsbCameraRecorder(const std::string& recording_label,
+                                     const std::function<void(const std::string&)>& raise_error,
+                                     PreviewServer* preview)
     : output_dir_(repo_constants::DATA_DIR + "/" + recording_label),
       raise_error_(raise_error),
       csv_(output_dir_ + "/camera.csv", "collection_id,frame_number,camera_timestamp_ms,host_timestamp"),
@@ -54,7 +55,7 @@ CameraRecorder::CameraRecorder(const std::string& recording_label,
     }
 }
 
-bool CameraRecorder::write_frame(const std::string& filename, const uint8_t* data) const {
+bool UsbCameraRecorder::write_frame(const std::string& filename, const uint8_t* data) const {
     std::ofstream out(filename, std::ios::binary);
     if (!out) return false;
 
@@ -63,9 +64,9 @@ bool CameraRecorder::write_frame(const std::string& filename, const uint8_t* dat
     return static_cast<bool>(out);
 }
 
-void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
-                                  const std::function<bool()>& stop,
-                                  const std::function<bool()>& pause) {
+void UsbCameraRecorder::collect_loop(const std::function<int()>&  collection_id,
+                                     const std::function<bool()>& stop,
+                                     const std::function<bool()>& pause) {
     try {
         const std::string frames_dir = output_dir_ + "/frames";
         auto camera_disconnected = [this] {
@@ -95,7 +96,7 @@ void CameraRecorder::collect_loop(const std::function<int()>&  collection_id,
             if (!color) continue;
             push_to_preview(preview_, color);
             if (pause()) continue;
-            
+
             std::ostringstream row;
             row << collection_id() << "," << frame_count << "," << std::fixed << std::setprecision(3) << color.get_timestamp() << "," << Time::ts();
             csv_.write_line(row.str());

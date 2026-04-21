@@ -1,44 +1,27 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
-#include <librealsense2/rs.hpp>
-#include <string>
 
-#include "utils/csv_saver.hpp"
-
-class PreviewServer;
-
-namespace camera_constants {
-    //General
-    constexpr int FRAMERATE = 30;
-    constexpr unsigned int FRAME_TIMEOUT_MS = 5000;
-    constexpr unsigned int WARMUP_COUNT = 30;
-    // Frame — raw RGB8 frames in 480x640 definition (HxW).
-    constexpr int FRAME_WIDTH = 640;
-    constexpr int FRAME_HEIGHT = 480;
-    constexpr int FRAME_BYTES_PER_PIXEL = 3; // RGB8
-    constexpr int FRAME_STRIDE = FRAME_WIDTH * FRAME_BYTES_PER_PIXEL;
-    constexpr int FRAME_SIZE = FRAME_STRIDE * FRAME_HEIGHT;
+// Raw RGB8 layout shared by USB and ZMQ recorders (480x640 HxW).
+namespace camera_frame {
+constexpr int FRAME_WIDTH = 640;
+constexpr int FRAME_HEIGHT = 480;
+constexpr int FRAME_BYTES_PER_PIXEL = 3;  // RGB8
+constexpr int FRAME_STRIDE = FRAME_WIDTH * FRAME_BYTES_PER_PIXEL;
+constexpr std::size_t FRAME_SIZE =
+    static_cast<std::size_t>(FRAME_STRIDE) * static_cast<std::size_t>(FRAME_HEIGHT);
 }
 
+// Abstract camera recorder for  RealSense camera.
 class CameraRecorder {
 public:
-    CameraRecorder(const std::string& recording_label,
-                   const std::function<void(const std::string&)>& raise_error,
-                   PreviewServer* preview = nullptr);
+    virtual ~CameraRecorder() = default;
 
-    void collect_loop(const std::function<int()>&  collection_id,
-                      const std::function<bool()>& stop,
-                      const std::function<bool()>& pause = [] { return false; });
-
-private:
-    bool write_frame(const std::string& filename, const uint8_t* data) const;
-
-    std::string output_dir_;
-    std::function<void(const std::string&)> raise_error_;
-    CsvSaver csv_;
-    rs2::context context_;
-    rs2::pipeline pipe_;
-    rs2::device device_;
-    PreviewServer* preview_ = nullptr; 
+    // Drive the recorder until `stop()` returns true. While `pause()` returns
+    // true, frames are still consumed (so the preview stays fresh) but not
+    // written to disk.
+    virtual void collect_loop(const std::function<int()>&  collection_id,
+                              const std::function<bool()>& stop,
+                              const std::function<bool()>& pause) = 0;
 };

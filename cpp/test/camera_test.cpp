@@ -1,4 +1,4 @@
-#include "camera/camera_recorder.hpp"
+#include "camera/usb_camera_recorder.hpp"
 
 #include <csignal>
 #include <iostream>
@@ -11,11 +11,12 @@ int main() try
 {
     std::signal(SIGINT, sigint_handler);
 
-    CameraRecorder recorder("camera_test",
+    UsbCameraRecorder recorder("camera_test",
         [](const std::string& msg) { std::cerr << msg << std::endl; });
     recorder.collect_loop(
         [] { return 0; },
-        [] { return !running; }
+        [] { return !running; },
+        [] { return false; }
     );
     return EXIT_SUCCESS;
 }

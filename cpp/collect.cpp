@@ -1,5 +1,7 @@
 #include "camera/camera_recorder.hpp"
 #include "camera/preview_server.hpp"
+#include "camera/usb_camera_recorder.hpp"
+#include "camera/zmq_camera_recorder.hpp"
 #include "collect_ui.hpp"
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
 #include "upper_body_reader/upper_body_reader.hpp"
@@ -21,6 +23,7 @@ namespace config {
     inline const bool upper_body_enabled = yaml["upper_body"]["enabled"].as<bool>();
     inline const bool inspire_enabled    = yaml["inspire"]["enabled"].as<bool>();
     inline const bool camera_enabled     = yaml["camera"]["enabled"].as<bool>();
+    inline const std::string camera_source = yaml["camera"]["source"] ? yaml["camera"]["source"].as<std::string>() : std::string("usb");
 
     inline const std::string left_arm   = yaml["upper_body"]["left_device"].as<std::string>();
     inline const std::string right_arm  = yaml["upper_body"]["right_device"].as<std::string>();
@@ -87,8 +90,13 @@ int main() {
         upper_body = std::make_unique<UpperBodyReader>(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
     if (config::inspire_enabled)
         inspire = std::make_unique<InspireRetargeter>(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
-    if (config::camera_enabled)
-        camera = std::make_unique<CameraRecorder>(recording_label, raise_error, preview.get());
+    if (config::camera_enabled) {
+        if (config::camera_source == "zmq") {
+            camera = std::make_unique<ZmqCameraRecorder>(recording_label, raise_error, preview.get());
+        } else {
+            camera = std::make_unique<UsbCameraRecorder>(recording_label, raise_error, preview.get());
+        }
+    }
 
     std::cout << "  " << recording_label
               << "   space → next   x → cancel   q → stop\n";

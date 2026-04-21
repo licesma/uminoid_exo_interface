@@ -60,15 +60,18 @@ target_compile_definitions(upper_body_reader PRIVATE
   DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 )
 
-# camera recorder (+ in-process MJPEG preview server)
+# in-process MJPEG preview server (shared by usb + zmq camera recorders)
 find_library(JPEG_LIB jpeg REQUIRED)
-add_library(camera_recorder OBJECT
-  camera/camera_recorder.cpp
-  camera/preview_server.cpp)
-target_include_directories(camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(camera_recorder PUBLIC realsense2 ${JPEG_LIB} pthread)
+add_library(preview_server OBJECT camera/preview_server.cpp)
+target_include_directories(preview_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(preview_server PUBLIC ${JPEG_LIB} pthread)
 
-# manus hand reader
+# usb camera recorder (local RealSense via librealsense2)
+add_library(usb_camera_recorder OBJECT camera/usb_camera_recorder.cpp)
+target_include_directories(usb_camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(usb_camera_recorder PUBLIC realsense2 preview_server pthread)
+
+# manus hand reader + zmq camera recorder (G1 head camera over ZMQ)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ZMQ REQUIRED libzmq)
 add_library(manus_reader OBJECT
@@ -77,6 +80,10 @@ add_library(manus_reader OBJECT
   manus/manus_hand.cpp)
 target_include_directories(manus_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
 target_link_libraries(manus_reader PUBLIC ${ZMQ_LIBRARIES})
+
+add_library(zmq_camera_recorder OBJECT camera/zmq_camera_recorder.cpp)
+target_include_directories(zmq_camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
+target_link_libraries(zmq_camera_recorder PUBLIC ${ZMQ_LIBRARIES} preview_server pthread)
 
 # g1 robot and controller
 add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
@@ -96,7 +103,7 @@ target_compile_definitions(g1 PRIVATE
 
 add_executable(collect collect.cpp)
 target_include_directories(collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(collect PRIVATE upper_body_reader inspire_retargeter manus_reader camera_recorder yaml-cpp)
+target_link_libraries(collect PRIVATE upper_body_reader inspire_retargeter manus_reader usb_camera_recorder zmq_camera_recorder preview_server yaml-cpp)
 
 add_executable(teleoperate teleoperate.cpp)
 target_include_directories(teleoperate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -132,7 +139,7 @@ target_link_libraries(retarget_test PRIVATE inspire_retargeter manus_reader)
 
 add_executable(camera_test test/camera_test.cpp)
 target_include_directories(camera_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(camera_test PRIVATE camera_recorder)
+target_link_libraries(camera_test PRIVATE usb_camera_recorder preview_server)
 
 
 add_executable(collect_cli_test test/collect_cli/main.cpp)

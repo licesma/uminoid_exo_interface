@@ -1,23 +1,24 @@
 upper_body:
-  enabled: true
+  enabled: false
   left_device:  "/dev/left_arm"
   right_device: "/dev/right_arm"
   baudrate: 1000000
 
 inspire:
-  enabled: true
+  enabled: false
   left_id: 1
   right_id: 2
 
 camera:
   enabled: true
+  source: "zmq"   # "usb" = local RealSense (UsbCameraRecorder); "zmq" = G1 head camera via realsense_raw_rgb.py (ZmqCameraRecorder)
 
 # Optional view-only MJPEG preview of the RealSense RGB stream. Intended to be
 # reached over Tailscale from another machine. Leave bind_host empty (or omit
 # the whole block) to disable. Recommended: set bind_host to this host's
 # tailscale0 IP so the stream is only reachable from the tailnet.
 preview:
-  bind_host: ""        # e.g. "100.84.51.76" (this host's Tailscale IP)
+  bind_host: "127.0.0.1"           # loopback: only the local tmux mpv pane consumes it
   port: 8080
   width: 320
   height: 240

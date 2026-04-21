@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 constexpr int G1_NUM_MOTOR = 29;
 
@@ -35,6 +36,7 @@ struct MotorCommand {
 };
 
 struct MotorState {
+  uint64_t host_timestamp = 0;
   std::array<float, G1_NUM_MOTOR> q = {};
   std::array<float, G1_NUM_MOTOR> dq = {};
 };

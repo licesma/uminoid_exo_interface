@@ -38,6 +38,11 @@ ArmReader::~ArmReader() {
   stop();
 }
 
+ArmSnapshot ArmReader::snapshot_with_counter() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return {latest_, frame_seq_};
+}
+
 void ArmReader::stop() {
   if (arm_) arm_->Stop();
   {

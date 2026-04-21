@@ -4,12 +4,18 @@
 #include "utils/csv_saver.hpp"
 
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
+
+struct ArmSnapshot {
+  ArmLine line{};
+  uint64_t sample_counter = 0;
+};
 
 /**
  * Wraps a SkeletonArm with a read thread, mutex-protected latest value,
@@ -28,9 +34,11 @@ class ArmReader {
 
   /** Non-blocking: returns the latest reading. */
   ArmLine snapshot() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return latest_;
+    return snapshot_with_counter().line;
   }
+
+  /** Non-blocking: returns the latest reading plus its sample counter. */
+  ArmSnapshot snapshot_with_counter() const;
 
   /** Blocking: waits until a new reading arrives since the last call. */
   std::optional<ArmLine> wait_for_next();

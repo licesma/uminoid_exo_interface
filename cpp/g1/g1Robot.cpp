@@ -1,5 +1,7 @@
 #include "g1Robot.hpp"
 
+#include "../utils/time.hpp"
+
 #include <cstring>
 #include <iostream>
 #include <unistd.h>
@@ -35,14 +37,6 @@ G1Robot::G1Robot(std::string networkInterface, bool isSimulation)
   command_writer_ptr_ = CreateRecurrentThreadEx("command_writer", UT_CPU_ID_NONE, 2000, &G1Robot::LowCommandWriter, this);
 }
 
-void G1Robot::StartControlThread() {
-  control_thread_ptr_ = CreateRecurrentThreadEx("control", UT_CPU_ID_NONE, 2000, &G1Robot::ControlDispatch, this);
-}
-
-void G1Robot::ControlDispatch() {
-  Control();
-}
-
 void G1Robot::imuTorsoHandler(const void *message) {
   IMUState_ imu_torso = *(const IMUState_ *)message;
   (void)imu_torso;
@@ -56,6 +50,7 @@ void G1Robot::LowStateHandler(const void *message) {
   }
 
   MotorState ms_tmp;
+  ms_tmp.host_timestamp = Time::ts();
   for (int i = 0; i < G1_NUM_MOTOR; ++i) {
     ms_tmp.q.at(i) = low_state.motor_state()[i].q();
     ms_tmp.dq.at(i) = low_state.motor_state()[i].dq();
@@ -80,6 +75,12 @@ void G1Robot::LowStateHandler(const void *message) {
   if (++counter_ % 500 == 0) {
     counter_ = 0;
   }
+}
+
+std::optional<MotorState> G1Robot::getMotorStateSnapshot() const {
+  const std::shared_ptr<const MotorState> ms = motor_state_buffer_.GetData();
+  if (!ms) return std::nullopt;
+  return *ms;
 }
 
 void G1Robot::LowCommandWriter() {

@@ -16,7 +16,7 @@ class DataBuffer {
     data_ = std::make_shared<T>(newData);
   }
 
-  std::shared_ptr<const T> GetData() {
+  std::shared_ptr<const T> GetData() const {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     return data_ ? data_ : nullptr;
   }
@@ -28,5 +28,5 @@ class DataBuffer {
 
  private:
   std::shared_ptr<T> data_;
-  std::shared_mutex mutex_;
+  mutable std::shared_mutex mutex_;
 };

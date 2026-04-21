@@ -85,13 +85,14 @@ add_library(zmq_camera_recorder OBJECT camera/zmq_camera_recorder.cpp)
 target_include_directories(zmq_camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
 target_link_libraries(zmq_camera_recorder PUBLIC ${ZMQ_LIBRARIES} preview_server pthread)
 
-# g1 robot and controller
-add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
+# g1 robot, controller, and teleop wrapper
+add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp g1/g1TeleopController.cpp)
 target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(g1 PUBLIC unitree_sdk2)
 target_compile_definitions(g1 PRIVATE
   G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
   READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+  DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 )
 
 

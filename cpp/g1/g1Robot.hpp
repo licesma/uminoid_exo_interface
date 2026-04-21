@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "../gamepad.hpp"
@@ -31,9 +32,6 @@ class G1Robot {
   DataBuffer<MotorCommand> motor_command_buffer_;
   DataBuffer<ImuState> imu_state_buffer_;
 
-  // Derived class must call this at the end of its constructor
-  void StartControlThread();
-
  private:
   int counter_;
   Gamepad gamepad_;
@@ -43,11 +41,8 @@ class G1Robot {
   ChannelSubscriberPtr<LowState_> lowstate_subscriber_;
   ChannelSubscriberPtr<IMUState_> imutorso_subscriber_;
   ThreadPtr command_writer_ptr_;
-  ThreadPtr control_thread_ptr_;
 
   std::shared_ptr<unitree::robot::b2::MotionSwitcherClient> msc_;
-
-  void ControlDispatch();  // calls virtual Control() — used by control thread
 
  public:
   G1Robot(std::string networkInterface, bool isSimulation);
@@ -56,6 +51,5 @@ class G1Robot {
   void imuTorsoHandler(const void *message);
   void LowStateHandler(const void *message);
   void LowCommandWriter();
-
-  virtual void Control() = 0;
+  std::optional<MotorState> getMotorStateSnapshot() const;
 };

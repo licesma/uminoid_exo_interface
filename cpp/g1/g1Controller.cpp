@@ -65,8 +65,7 @@ G1JointReading invalidReading(G1JointIndex joint) {
 G1Controller::G1Controller(std::string networkInterface, bool isSimulation,
                            const JointsReadingMetadata& metadata,
                            const JointBounds& reader_bounds,
-                           const std::string& recording_label,
-                           std::function<int()> collection_id_fn)
+                           const std::string& recording_label)
     : G1Robot(networkInterface, isSimulation),
       control_dt_(0.002),
       max_target_velocity_(2.0),
@@ -78,8 +77,7 @@ G1Controller::G1Controller(std::string networkInterface, bool isSimulation,
       right_command_csv_(make_csv_saver(recording_label, "right_command.csv")),
       metadata_(metadata),
       bounds_(LoadBounds(G1_BOUNDS_PATH)),
-      reader_bounds_(reader_bounds),
-      collection_id_fn_(std::move(collection_id_fn)) {
+      reader_bounds_(reader_bounds) {
 }
 
 ArmReadings G1Controller::decode_arm(const ArmLine& sample,
@@ -124,13 +122,14 @@ double G1Controller::toG1Angle(G1JointReading reading) {
 }
 
 void G1Controller::record_arm(const ArmLine& sample, const MotorState& state,
-                              const MotorCommand& command, bool from_left) {
+                              const MotorCommand& command, bool from_left,
+                              int collection_id) {
   CsvSaver& measured = from_left ? left_measured_csv_ : right_measured_csv_;
   CsvSaver& cmd = from_left ? left_command_csv_ : right_command_csv_;
   if (!measured || !cmd) return;
 
   const auto& joints = from_left ? LEFT_ARM_JOINTS : RIGHT_ARM_JOINTS;
-  const std::string prefix = std::to_string(collection_id_fn_()) + "," +
+  const std::string prefix = std::to_string(collection_id) + "," +
                              std::to_string(sample.timestamp) + "," +
                              std::to_string(sample.host_timestamp);
   std::ostringstream measured_row;
@@ -172,7 +171,8 @@ bool G1Controller::initialize_targets_from_robot_state(
   return false;
 }
 
-void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left) {
+void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left,
+                                      int collection_id, bool record) {
   const std::shared_ptr<const MotorState> ms = motor_state_buffer_.GetData();
   if (!ms) return;
 
@@ -194,6 +194,6 @@ void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left) {
         commanded_targets_.at(joint_index);
   }
 
-  record_arm(sample, *ms, motor_command_tmp, from_left);
+  if (record) record_arm(sample, *ms, motor_command_tmp, from_left, collection_id);
   motor_command_buffer_.SetData(motor_command_tmp);
 }

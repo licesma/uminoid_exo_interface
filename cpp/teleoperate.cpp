@@ -1,12 +1,17 @@
-#include <iostream>
+#include <atomic>
+#include <csignal>
 #include <filesystem>
+#include <iostream>
 #include <string>
-#include <thread>
-#include <chrono>
 
 #include <yaml-cpp/yaml.h>
 
-#include "g1/g1TeleopController.hpp"
+#include "upper_body_reader/g1_upper_body_reader.hpp"
+
+namespace {
+std::atomic<bool> g_stop{false};
+void on_signal(int) { g_stop.store(true); }
+}  // namespace
 
 int main(int argc, char const *argv[]) {
   if (argc < 2) {
@@ -40,12 +45,12 @@ int main(int argc, char const *argv[]) {
   std::cout << "Starting Dynamixel reader on " << left_device << " + "
             << right_device << " at " << baudrate << " baud" << std::endl;
 
-  G1TeleopController custom(networkInterface, left_device, right_device,
-                            baudrate, isSimulation);
+  std::signal(SIGINT, on_signal);
+  std::signal(SIGTERM, on_signal);
 
-  while (true) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-  }
+  G1UpperBodyReader custom(networkInterface, left_device, right_device,
+                           baudrate, isSimulation);
+  custom.collect_loop([] { return 0; }, [] { return g_stop.load(); });
 
   return 0;
 }

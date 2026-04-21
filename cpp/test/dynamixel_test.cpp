@@ -1,4 +1,4 @@
-#include "upper_body_reader/upper_body_reader.hpp"
+#include "upper_body_reader/exo_upper_body_reader.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -12,7 +12,7 @@ int main(int argc, char const* argv[]) {
   std::cout << "Starting Dynamixel reader on " << left_device << " + "
             << right_device << " at " << baudrate << " baud" << std::endl;
 
-  UpperBodyReader reader(left_device, right_device, baudrate);
+  ExoUpperBodyReader reader(left_device, right_device, baudrate);
 
   while (true) {
     const auto left = reader.left.wait_for_next();

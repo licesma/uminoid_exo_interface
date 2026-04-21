@@ -1,4 +1,4 @@
-#include "upper_body_reader.hpp"
+#include "exo_upper_body_reader.hpp"
 
 #include "arm_reader/as5600/as5600_arm.hpp"
 #include "arm_reader/dynamixel/dynamixel_arm.hpp"
@@ -9,9 +9,9 @@
 #include <iostream>
 #include <thread>
 
-UpperBodyReader::UpperBodyReader(const std::string& relay_address,
-                                 const std::string& recording_label,
-                                 double default_value)
+ExoUpperBodyReader::ExoUpperBodyReader(const std::string& relay_address,
+                                       const std::string& recording_label,
+                                       double default_value)
     : left(std::make_unique<AS5600Arm>(relay_address, 0),
            recording_label.empty()
                ? ""
@@ -23,7 +23,7 @@ UpperBodyReader::UpperBodyReader(const std::string& relay_address,
                 : repo_constants::DATA_DIR + "/" + recording_label +
                       "/right_arm.csv") {}
 
-UpperBodyReader::UpperBodyReader(
+ExoUpperBodyReader::ExoUpperBodyReader(
     const std::string& left_device, const std::string& right_device,
     int baudrate, const std::string& recording_label,
     const std::function<void(const std::string&)>& raise_error)
@@ -46,7 +46,7 @@ UpperBodyReader::UpperBodyReader(
                       "/right_arm.csv",
             raise_error) {}
 
-void UpperBodyReader::PrintRaw() const {
+void ExoUpperBodyReader::PrintRaw() const {
   const auto left_data = left.snapshot();
   const auto right_data = right.snapshot();
 
@@ -73,7 +73,7 @@ void UpperBodyReader::PrintRaw() const {
   std::cout << out << std::flush;
 }
 
-void UpperBodyReader::collect_loop(
+void ExoUpperBodyReader::collect_loop(
     const std::function<int()>& collection_id,
     const std::function<bool()>& stop,
     const std::function<bool()>& pause) {

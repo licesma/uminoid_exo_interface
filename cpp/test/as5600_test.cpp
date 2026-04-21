@@ -1,4 +1,4 @@
-#include "upper_body_reader/upper_body_reader.hpp"
+#include "upper_body_reader/exo_upper_body_reader.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -8,7 +8,7 @@ int main(int argc, char const* argv[]) {
 
   std::cout << "Starting AS5600 reader on " << relay_address << std::endl;
 
-  UpperBodyReader reader(relay_address);
+  ExoUpperBodyReader reader(relay_address);
 
   while (true) {
     const auto left = reader.left.wait_for_next();

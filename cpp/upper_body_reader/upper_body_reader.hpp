@@ -1,31 +1,20 @@
 #pragma once
 
-#include "arm_reader/arm_reader.hpp"
-
 #include <functional>
-#include <string>
 
+/**
+ * Abstract upper-body recorder. Implementations:
+ *   - ExoUpperBodyReader: records raw exo encoder ticks (no robot).
+ *   - G1UpperBodyReader:  drives the G1 from exo readings and records
+ *                         measured/commanded G1 joint angles in radians.
+ */
 class UpperBodyReader {
  public:
-  /** Construct with AS5600Arms (TCP relay). */
-  explicit UpperBodyReader(
-      const std::string& relay_address, const std::string& recording_label = "",
-      double default_value = 0.0);
+  virtual ~UpperBodyReader() = default;
 
-  /** Construct with DynamixelArms (USB/U2D2). Empty string disables that arm. */
-  UpperBodyReader(
-      const std::string& left_device, const std::string& right_device,
-      int baudrate, const std::string& recording_label = "",
-      const std::function<void(const std::string&)>& raise_error = nullptr);
-
-  ~UpperBodyReader() = default;
-
-  void PrintRaw() const;
-
-  void collect_loop(const std::function<int()>&  collection_id,
-                    const std::function<bool()>& stop,
-                    const std::function<bool()>& pause = [] { return false; });
-
-  ArmReader left;
-  ArmReader right;
+  /** Drive recording until `stop()` returns true. While `pause()` returns
+   *  true, samples are still consumed but not written to disk. */
+  virtual void collect_loop(const std::function<int()>&  collection_id,
+                            const std::function<bool()>& stop,
+                            const std::function<bool()>& pause) = 0;
 };

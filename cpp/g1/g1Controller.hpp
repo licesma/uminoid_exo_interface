@@ -44,21 +44,21 @@ class G1Controller : public G1Robot {
   JointsReadingMetadata metadata_;
   JointBounds bounds_;
   JointBounds reader_bounds_;
-  std::function<int()> collection_id_fn_;
   ArmReadings decode_arm(const ArmLine& sample, bool from_left) const;
   double toG1Angle(G1JointReading reading);
   void record_arm(const ArmLine& sample, const MotorState& state,
-                  const MotorCommand& command, bool from_left);
+                  const MotorCommand& command, bool from_left,
+                  int collection_id);
 
  public:
-  G1Controller(
-      std::string networkInterface, bool isSimulation,
-      const JointsReadingMetadata& metadata, const JointBounds& reader_bounds,
-      const std::string& recording_label = "",
-      std::function<int()> collection_id_fn = [] { return 0; });
+  G1Controller(std::string networkInterface, bool isSimulation,
+               const JointsReadingMetadata& metadata,
+               const JointBounds& reader_bounds,
+               const std::string& recording_label = "");
   ~G1Controller() override = default;
 
   bool initialize_targets_from_robot_state(
       const std::function<bool()>& stop_requested);
-  void process_arm_sample(const ArmLine& sample, bool from_left);
+  void process_arm_sample(const ArmLine& sample, bool from_left,
+                          int collection_id, bool record);
 };

@@ -4,7 +4,8 @@
 #include "camera/zmq_camera_recorder.hpp"
 #include "collect_ui.hpp"
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
-#include "upper_body_reader/upper_body_reader.hpp"
+#include "upper_body_reader/exo_upper_body_reader.hpp"
+#include "upper_body_reader/g1_upper_body_reader.hpp"
 #include "utils/recording_label.hpp"
 #include "utils/repo_constants.hpp"
 
@@ -23,11 +24,17 @@ namespace config {
     inline const bool upper_body_enabled = yaml["upper_body"]["enabled"].as<bool>();
     inline const bool inspire_enabled    = yaml["inspire"]["enabled"].as<bool>();
     inline const bool camera_enabled     = yaml["camera"]["enabled"].as<bool>();
+    inline const std::string upper_body_source = yaml["upper_body"]["source"] ? yaml["upper_body"]["source"].as<std::string>() : std::string("exo");
     inline const std::string camera_source = yaml["camera"]["source"] ? yaml["camera"]["source"].as<std::string>() : std::string("usb");
 
     inline const std::string left_arm   = yaml["upper_body"]["left_device"].as<std::string>();
     inline const std::string right_arm  = yaml["upper_body"]["right_device"].as<std::string>();
     inline const int         baudrate   = yaml["upper_body"]["baudrate"].as<int>();
+    inline const std::string network_interface =
+        yaml["upper_body"]["network_interface"]
+            ? yaml["upper_body"]["network_interface"].as<std::string>()
+            : std::string("");
+    inline const bool is_simulation = yaml["is_simulation"].as<bool>();
 
     inline const uint8_t inspire_left_id  = yaml["inspire"]["left_id"].as<int>();
     inline const uint8_t inspire_right_id = yaml["inspire"]["right_id"].as<int>();
@@ -86,8 +93,18 @@ int main() {
     std::unique_ptr<InspireRetargeter> inspire;
     std::unique_ptr<CameraRecorder>    camera;
 
-    if (config::upper_body_enabled)
-        upper_body = std::make_unique<UpperBodyReader>(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
+    if (config::upper_body_enabled) {
+        if (config::upper_body_source == "g1") {
+            upper_body = std::make_unique<G1UpperBodyReader>(
+                config::network_interface, config::left_arm, config::right_arm,
+                config::baudrate, config::is_simulation, recording_label,
+                raise_error);
+        } else {
+            upper_body = std::make_unique<ExoUpperBodyReader>(
+                config::left_arm, config::right_arm, config::baudrate,
+                recording_label, raise_error);
+        }
+    }
     if (config::inspire_enabled)
         inspire = std::make_unique<InspireRetargeter>(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
     if (config::camera_enabled) {

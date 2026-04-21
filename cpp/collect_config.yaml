@@ -1,14 +1,19 @@
 upper_body:
+  enabled: true
   # Symlinks created by udev/99-uminoid-arms.rules (matched by FTDI serial).
   left_device:  "/dev/left_arm"
   right_device: "/dev/right_arm"
   baudrate: 1000000
 
 inspire:
+  enabled: true
   # HAND_IDs assigned via set_inspire_id.py (run once per hand).
   # Factory default is 1; flash the right hand to 2.
   left_id: 1
   right_id: 2
+
+camera:
+  enabled: true
 
 # Optional view-only MJPEG preview of the RealSense RGB stream. Intended to be
 # reached over Tailscale from another machine. Leave bind_host empty (or omit

@@ -18,6 +18,10 @@ namespace config {
     static const std::string PATH = (std::filesystem::path(__FILE__).parent_path() / "collect_config.yaml").lexically_normal().string();
     static const YAML::Node yaml = YAML::LoadFile(PATH);
 
+    inline const bool upper_body_enabled = yaml["upper_body"]["enabled"].as<bool>();
+    inline const bool inspire_enabled    = yaml["inspire"]["enabled"].as<bool>();
+    inline const bool camera_enabled     = yaml["camera"]["enabled"].as<bool>();
+
     inline const std::string left_arm   = yaml["upper_body"]["left_device"].as<std::string>();
     inline const std::string right_arm  = yaml["upper_body"]["right_device"].as<std::string>();
     inline const int         baudrate   = yaml["upper_body"]["baudrate"].as<int>();
@@ -39,7 +43,7 @@ namespace config {
         return c;
     }
     inline const PreviewServer::Config preview_cfg = load_preview_cfg();
-    inline const bool preview_enabled = !preview_cfg.bind_host.empty();
+    inline const bool preview_enabled = camera_enabled && !preview_cfg.bind_host.empty();
 }
 
 int main() {
@@ -75,18 +79,26 @@ int main() {
                   << ":" << config::preview_cfg.port << "/\n";
     }
 
-     UpperBodyReader   upper_body(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
-    InspireRetargeter inspire(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
-    CameraRecorder    camera(recording_label, raise_error, preview.get());
+    std::unique_ptr<UpperBodyReader>   upper_body;
+    std::unique_ptr<InspireRetargeter> inspire;
+    std::unique_ptr<CameraRecorder>    camera;
+
+    if (config::upper_body_enabled)
+        upper_body = std::make_unique<UpperBodyReader>(config::left_arm, config::right_arm, config::baudrate, recording_label, raise_error);
+    if (config::inspire_enabled)
+        inspire = std::make_unique<InspireRetargeter>(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
+    if (config::camera_enabled)
+        camera = std::make_unique<CameraRecorder>(recording_label, raise_error, preview.get());
 
     std::cout << "  " << recording_label
               << "   space → next   x → cancel   q → stop\n";
 
     ui::add_collection(_collection_id.load());
 
-    std::thread camera_thread    ([&] { camera.collect_loop(collection_id, stop, paused); });
-    std::thread upper_body_thread([&] { upper_body.collect_loop(collection_id, stop, paused); });
-    std::thread inspire_thread   ([&] { inspire.retarget_loop(stop, collection_id, paused); });
+    std::thread camera_thread, upper_body_thread, inspire_thread;
+    if (camera)     camera_thread     = std::thread([&] { camera->collect_loop(collection_id, stop, paused); });
+    if (upper_body) upper_body_thread = std::thread([&] { upper_body->collect_loop(collection_id, stop, paused); });
+    if (inspire)    inspire_thread    = std::thread([&] { inspire->retarget_loop(stop, collection_id, paused); });
 
     std::thread display_thread([&] {
         while (running.load()) {
@@ -133,9 +145,9 @@ int main() {
     ui::save_status_csv(repo_constants::DATA_DIR + "/" + recording_label + "/collection_status.csv");
 
     display_thread.join();
-    //camera_thread.join();
-    upper_body_thread.join();
-    //inspire_thread.join();
+    if (camera_thread.joinable())  camera_thread.join();
+    if (upper_body_thread.joinable()) upper_body_thread.join();
+    if (inspire_thread.joinable()) inspire_thread.join();
 
     if (preview) preview->stop();
 

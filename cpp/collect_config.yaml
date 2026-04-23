@@ -11,6 +11,8 @@ upper_body:
 
 inspire:
   enabled: true
+  source: "usb"   # "usb" = direct serial to hands; "g1" = via G1 DDS bridge (inspire_g1)
+  network_interface: "enx00e04c6803fc"  # used when source == "g1"
   left:
     enabled: true
     id: 1

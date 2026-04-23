@@ -3,7 +3,9 @@
 #include "camera/usb_camera_recorder.hpp"
 #include "camera/zmq_camera_recorder.hpp"
 #include "collect_ui.hpp"
+#include "hand_retarget/inspire/g1_inspire_retargeter.hpp"
 #include "hand_retarget/inspire/inspire_retargeter.hpp"
+#include "hand_retarget/inspire/usb_inspire_retargeter.hpp"
 #include "upper_body_reader/exo_upper_body_reader.hpp"
 #include "upper_body_reader/g1_upper_body_reader.hpp"
 #include "utils/recording_label.hpp"
@@ -36,6 +38,12 @@ namespace config {
             : std::string("");
     inline const bool is_simulation = yaml["is_simulation"].as<bool>();
 
+    inline const std::string inspire_source =
+        yaml["inspire"]["source"] ? yaml["inspire"]["source"].as<std::string>() : std::string("usb");
+    inline const std::string inspire_network_interface =
+        yaml["inspire"]["network_interface"]
+            ? yaml["inspire"]["network_interface"].as<std::string>()
+            : std::string("");
     inline const bool    inspire_left_enabled  = yaml["inspire"]["left"]["enabled"].as<bool>();
     inline const bool    inspire_right_enabled = yaml["inspire"]["right"]["enabled"].as<bool>();
     inline const uint8_t inspire_left_id       = yaml["inspire"]["left"]["id"].as<int>();
@@ -107,11 +115,20 @@ int main() {
                 recording_label, raise_error);
         }
     }
-    if (config::inspire_enabled)
-        inspire = std::make_unique<InspireRetargeter>(
-            config::inspire_left_enabled,  config::inspire_left_id,
-            config::inspire_right_enabled, config::inspire_right_id,
-            recording_label, raise_error);
+    if (config::inspire_enabled) {
+        if (config::inspire_source == "g1") {
+            inspire = std::make_unique<G1InspireRetargeter>(
+                config::inspire_left_enabled,
+                config::inspire_right_enabled,
+                config::inspire_network_interface,
+                recording_label, raise_error);
+        } else {
+            inspire = std::make_unique<UsbInspireRetargeter>(
+                config::inspire_left_enabled,  config::inspire_left_id,
+                config::inspire_right_enabled, config::inspire_right_id,
+                recording_label, raise_error);
+        }
+    }
     if (config::camera_enabled) {
         if (config::camera_source == "zmq") {
             camera = std::make_unique<ZmqCameraRecorder>(recording_label, raise_error, preview.get());

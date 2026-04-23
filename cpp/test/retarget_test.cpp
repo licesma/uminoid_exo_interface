@@ -1,4 +1,4 @@
-#include "hand_retarget/inspire/inspire_retargeter.hpp"
+#include "hand_retarget/inspire/usb_inspire_retargeter.hpp"
 
 #include <atomic>
 #include <csignal>
@@ -16,7 +16,8 @@ int main(int argc, char** argv) {
     std::cout << "Retarget loop: left_id=" << int(left_id)
               << " right_id=" << int(right_id) << std::endl;
 
-    InspireRetargeter retargeter(left_id, right_id);
+    UsbInspireRetargeter retargeter(/*left_enabled=*/true,  left_id,
+                                    /*right_enabled=*/true, right_id);
     retargeter.retarget_loop([] { return !running.load(); });
 
     return 0;

@@ -161,12 +161,14 @@ target_link_libraries(inspire_g1_test PRIVATE unitree_sdk2)
 
 add_library(inspire_retargeter OBJECT
   hand_retarget/inspire/inspire_retargeter.cpp
+  hand_retarget/inspire/usb_inspire_retargeter.cpp
+  hand_retarget/inspire/g1_inspire_retargeter.cpp
   hand_retarget/inspire/inspire_port_resolver.cpp
 )
 target_include_directories(inspire_retargeter PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dfx_inspire_service/include)
-target_link_libraries(inspire_retargeter PUBLIC yaml-cpp)
+target_link_libraries(inspire_retargeter PUBLIC yaml-cpp manus_reader unitree_sdk2)
 
 
 

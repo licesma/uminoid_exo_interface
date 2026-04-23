@@ -1,8 +1,5 @@
 #pragma once
 
-#include "hand_retarget/inspire/inspire_port_resolver.hpp"
-#include "inspire.h"
-#include "SerialPort.h"
 #include "manus/manus_reader.hpp"
 
 #include <cstdint>
@@ -17,17 +14,23 @@
 
 using InspirePose = Eigen::Matrix<double, 6, 1>;
 
+/**
+ * Abstract inspire-hand retargeter. Reads Manus glove poses, maps them to
+ * per-finger inspire targets, and forwards them to a concrete transport.
+ *
+ * Implementations:
+ *   - UsbInspireRetargeter: writes directly to the hands over USB serial.
+ *   - G1InspireRetargeter:  publishes DDS commands picked up by the
+ *                           inspire_g1 bridge running on the G1.
+ */
 class InspireRetargeter {
 public:
-    // Resolves which /dev/ttyUSB* port hosts which hand by probing HAND_IDs.
-    // Pass left_enabled/right_enabled = false to skip a side entirely (no
-    // port probe, no SetVelocity/SetPosition calls, no error if missing).
     InspireRetargeter(
-        bool left_enabled,  uint8_t left_id,
-        bool right_enabled, uint8_t right_id,
-        const std::string& recording_label = "",
-        const std::function<void(const std::string&)>& raise_error = nullptr
+        bool left_enabled, bool right_enabled,
+        const std::string& recording_label,
+        const std::function<void(const std::string&)>& raise_error
     );
+    virtual ~InspireRetargeter() = default;
 
     void retarget_loop(
         const std::function<bool()>& stop,
@@ -35,31 +38,31 @@ public:
         const std::function<bool()>& pause        = [] { return false; }
     );
 
-private:
-    // Delegated-to by the public constructor; lets us resolve port paths first.
-    InspireRetargeter(
-        const inspire_port_resolver::Assignment& ports,
-        bool left_enabled,  uint8_t left_id,
-        bool right_enabled, uint8_t right_id,
-        const std::string& recording_label,
-        const std::function<void(const std::string&)>& raise_error
-    );
+protected:
+    // Send commanded targets to the actual hand(s). A std::nullopt target
+    // means "no command for this side this tick" (e.g. missing glove sample
+    // or disabled side).
+    virtual void send(
+        const opt<InspirePose>& left_target,
+        const opt<InspirePose>& right_target
+    ) = 0;
 
-    opt<InspirePose> retarget(const opt<ManusHand>& hand, HandSide side) const;
+    bool left_enabled_;
+    bool right_enabled_;
+
+private:
     struct FingerBounds { double low, high; };
     struct HandBounds {
         FingerBounds index, middle, ring, pinky, thumb;
     };
+
+    opt<InspirePose> retarget(const opt<ManusHand>& hand, HandSide side) const;
 
     static double scale(float value, double low, double high);
     static HandBounds load_bounds(const YAML::Node& node);
 
     HandBounds left_bounds_;
     HandBounds right_bounds_;
-    SerialPort::SharedPtr left_serial_;
-    SerialPort::SharedPtr right_serial_;
-    std::optional<inspire::InspireHand> left_hand_;
-    std::optional<inspire::InspireHand> right_hand_;
     std::string recording_label_;
     ManusReader manus_;
     CsvSaver hand_csv_;

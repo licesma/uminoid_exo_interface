@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <eigen3/Eigen/Dense>
 #include <functional>
+#include <optional>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
@@ -18,10 +19,12 @@ using InspirePose = Eigen::Matrix<double, 6, 1>;
 
 class InspireRetargeter {
 public:
-    // Resolves which /dev/ttyUSB* port hosts which hand by probing HAND_IDs
+    // Resolves which /dev/ttyUSB* port hosts which hand by probing HAND_IDs.
+    // Pass left_enabled/right_enabled = false to skip a side entirely (no
+    // port probe, no SetVelocity/SetPosition calls, no error if missing).
     InspireRetargeter(
-        uint8_t left_id,
-        uint8_t right_id,
+        bool left_enabled,  uint8_t left_id,
+        bool right_enabled, uint8_t right_id,
         const std::string& recording_label = "",
         const std::function<void(const std::string&)>& raise_error = nullptr
     );
@@ -36,8 +39,8 @@ private:
     // Delegated-to by the public constructor; lets us resolve port paths first.
     InspireRetargeter(
         const inspire_port_resolver::Assignment& ports,
-        uint8_t left_id,
-        uint8_t right_id,
+        bool left_enabled,  uint8_t left_id,
+        bool right_enabled, uint8_t right_id,
         const std::string& recording_label,
         const std::function<void(const std::string&)>& raise_error
     );
@@ -55,8 +58,8 @@ private:
     HandBounds right_bounds_;
     SerialPort::SharedPtr left_serial_;
     SerialPort::SharedPtr right_serial_;
-    inspire::InspireHand left_hand_;
-    inspire::InspireHand right_hand_;
+    std::optional<inspire::InspireHand> left_hand_;
+    std::optional<inspire::InspireHand> right_hand_;
     std::string recording_label_;
     ManusReader manus_;
     CsvSaver hand_csv_;

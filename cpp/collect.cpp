@@ -36,8 +36,10 @@ namespace config {
             : std::string("");
     inline const bool is_simulation = yaml["is_simulation"].as<bool>();
 
-    inline const uint8_t inspire_left_id  = yaml["inspire"]["left_id"].as<int>();
-    inline const uint8_t inspire_right_id = yaml["inspire"]["right_id"].as<int>();
+    inline const bool    inspire_left_enabled  = yaml["inspire"]["left"]["enabled"].as<bool>();
+    inline const bool    inspire_right_enabled = yaml["inspire"]["right"]["enabled"].as<bool>();
+    inline const uint8_t inspire_left_id       = yaml["inspire"]["left"]["id"].as<int>();
+    inline const uint8_t inspire_right_id      = yaml["inspire"]["right"]["id"].as<int>();
 
     // Preview is optional; an empty/missing bind_host disables it entirely.
     inline PreviewServer::Config load_preview_cfg() {
@@ -106,7 +108,10 @@ int main() {
         }
     }
     if (config::inspire_enabled)
-        inspire = std::make_unique<InspireRetargeter>(config::inspire_left_id, config::inspire_right_id, recording_label, raise_error);
+        inspire = std::make_unique<InspireRetargeter>(
+            config::inspire_left_enabled,  config::inspire_left_id,
+            config::inspire_right_enabled, config::inspire_right_id,
+            recording_label, raise_error);
     if (config::camera_enabled) {
         if (config::camera_source == "zmq") {
             camera = std::make_unique<ZmqCameraRecorder>(recording_label, raise_error, preview.get());

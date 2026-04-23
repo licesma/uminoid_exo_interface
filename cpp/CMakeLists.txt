@@ -47,7 +47,7 @@ find_package(yaml-cpp REQUIRED)
 # upper_body_reader owns the exoskeleton sensor reader implementations
 add_library(
   upper_body_reader OBJECT
-  upper_body_reader/upper_body_reader.cpp
+  upper_body_reader/exo_upper_body_reader.cpp
   upper_body_reader/arm_reader/arm_reader.cpp
   upper_body_reader/arm_reader/as5600/as5600_arm.cpp
   upper_body_reader/arm_reader/dynamixel/dynamixel_arm.cpp
@@ -85,12 +85,21 @@ add_library(zmq_camera_recorder OBJECT camera/zmq_camera_recorder.cpp)
 target_include_directories(zmq_camera_recorder PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS})
 target_link_libraries(zmq_camera_recorder PUBLIC ${ZMQ_LIBRARIES} preview_server pthread)
 
-# g1 robot, controller, and teleop wrapper
-add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp g1/g1TeleopController.cpp)
+# g1 robot + controller
+add_library(g1 OBJECT g1/g1Robot.cpp g1/g1Controller.cpp)
 target_include_directories(g1 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(g1 PUBLIC unitree_sdk2)
 target_compile_definitions(g1 PRIVATE
   G1_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/g1/model/upperBodyJointBounds.yaml"
+  READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+  DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
+)
+
+# bridge that drives g1Controller from arm-reader samples and records CSVs
+add_library(g1_upper_body_reader OBJECT upper_body_reader/g1_upper_body_reader.cpp)
+target_include_directories(g1_upper_body_reader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(g1_upper_body_reader PUBLIC g1 upper_body_reader)
+target_compile_definitions(g1_upper_body_reader PRIVATE
   READER_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
   DYNAMIXEL_BOUNDS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 )
@@ -104,11 +113,11 @@ target_compile_definitions(g1 PRIVATE
 
 add_executable(collect collect.cpp)
 target_include_directories(collect PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(collect PRIVATE upper_body_reader inspire_retargeter manus_reader usb_camera_recorder zmq_camera_recorder preview_server yaml-cpp)
+target_link_libraries(collect PRIVATE upper_body_reader g1_upper_body_reader g1 inspire_retargeter manus_reader usb_camera_recorder zmq_camera_recorder preview_server yaml-cpp)
 
 add_executable(teleoperate teleoperate.cpp)
 target_include_directories(teleoperate PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(teleoperate PRIVATE g1 upper_body_reader yaml-cpp)
+target_link_libraries(teleoperate PRIVATE g1_upper_body_reader g1 upper_body_reader yaml-cpp)
 
 target_compile_definitions(teleoperate PRIVATE
   CONFIG_PATH="${CMAKE_CURRENT_SOURCE_DIR}/config.yaml"

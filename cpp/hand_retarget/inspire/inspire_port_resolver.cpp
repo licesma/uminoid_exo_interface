@@ -120,8 +120,8 @@ std::vector<std::string> list_inspire_ports() {
 }  // namespace
 
 Assignment resolve(
-    uint8_t left_id,
-    uint8_t right_id,
+    std::optional<uint8_t> left_id,
+    std::optional<uint8_t> right_id,
     const std::function<void(const std::string&)>& raise_error
 ) {
     auto fail = [&](const std::string& msg) -> Assignment {
@@ -129,9 +129,15 @@ Assignment resolve(
         return {};
     };
 
-    if (left_id == right_id) {
+    if (!left_id && !right_id) return {};
+
+    if (left_id && right_id && *left_id == *right_id) {
         return fail("left_id and right_id must differ");
     }
+
+    std::vector<uint8_t> wanted_ids;
+    if (left_id)  wanted_ids.push_back(*left_id);
+    if (right_id) wanted_ids.push_back(*right_id);
 
     std::unordered_map<uint8_t, std::string> port_for_id;
 
@@ -140,7 +146,7 @@ Assignment resolve(
         if (fd.fd < 0) continue;
 
         std::optional<uint8_t> id;
-        for (uint8_t try_id : {left_id, right_id}) {
+        for (uint8_t try_id : wanted_ids) {
             if ((id = probe_hand_id(fd.fd, try_id))) break;
         }
         if (!id) continue;
@@ -153,18 +159,19 @@ Assignment resolve(
         }
     }
 
-    auto find = [&](uint8_t id, const char* label) -> std::string {
+    auto find = [&](uint8_t id) -> std::string {
         auto it = port_for_id.find(id);
         if (it == port_for_id.end()) return {};
         return it->second;
     };
 
-    std::string left  = find(left_id,  "left");
-    std::string right = find(right_id, "right");
-    if (left.empty() || right.empty()) {
-        std::string missing;
-        if (left.empty())  missing += " left(HAND_ID=" + std::to_string(left_id)  + ")";
-        if (right.empty()) missing += " right(HAND_ID=" + std::to_string(right_id) + ")";
+    std::string left  = left_id  ? find(*left_id)  : std::string{};
+    std::string right = right_id ? find(*right_id) : std::string{};
+
+    std::string missing;
+    if (left_id  && left.empty())  missing += " left(HAND_ID=" + std::to_string(*left_id)  + ")";
+    if (right_id && right.empty()) missing += " right(HAND_ID=" + std::to_string(*right_id) + ")";
+    if (!missing.empty()) {
         return fail("no hand found on /dev/ttyUSB* for:" + missing);
     }
 

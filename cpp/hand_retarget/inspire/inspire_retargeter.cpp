@@ -43,36 +43,42 @@ std::string format_line(int collection_id,
 }  // namespace
 
 InspireRetargeter::InspireRetargeter(
-    uint8_t left_id,
-    uint8_t right_id,
+    bool left_enabled,  uint8_t left_id,
+    bool right_enabled, uint8_t right_id,
     const std::string& recording_label,
     const std::function<void(const std::string&)>& raise_error
 )
-    : InspireRetargeter(inspire_port_resolver::resolve(left_id, right_id, raise_error),
-                        left_id, right_id, recording_label, raise_error)
+    : InspireRetargeter(inspire_port_resolver::resolve(
+                            left_enabled  ? std::optional<uint8_t>{left_id}  : std::nullopt,
+                            right_enabled ? std::optional<uint8_t>{right_id} : std::nullopt,
+                            raise_error),
+                        left_enabled,  left_id,
+                        right_enabled, right_id,
+                        recording_label, raise_error)
 {}
 
 InspireRetargeter::InspireRetargeter(
     const inspire_port_resolver::Assignment& ports,
-    uint8_t left_id,
-    uint8_t right_id,
+    bool left_enabled,  uint8_t left_id,
+    bool right_enabled, uint8_t right_id,
     const std::string& recording_label,
     const std::function<void(const std::string&)>& raise_error
 )
-    : left_serial_(std::make_shared<SerialPort>(ports.left_device, raise_error)),
-      right_serial_(std::make_shared<SerialPort>(ports.right_device, raise_error)),
-      left_hand_(left_serial_, left_id),
-      right_hand_(right_serial_, right_id),
+    : left_serial_(left_enabled  ? std::make_shared<SerialPort>(ports.left_device,  raise_error) : nullptr),
+      right_serial_(right_enabled ? std::make_shared<SerialPort>(ports.right_device, raise_error) : nullptr),
       recording_label_(recording_label),
       manus_(manus_defaults::LEFT_ADDRESS, manus_defaults::RIGHT_ADDRESS, raise_error)
 {
+    if (left_enabled)  left_hand_.emplace(left_serial_,  left_id);
+    if (right_enabled) right_hand_.emplace(right_serial_, right_id);
+
     YAML::Node config = YAML::LoadFile(BOUNDS_PATH);
     left_bounds_  = load_bounds(config["left"]);
     right_bounds_ = load_bounds(config["right"]);
 
     // SetVelocity errors propagate via raise_error wired into SerialPort.
-    left_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
-    right_hand_.SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
+    if (left_hand_)  left_hand_->SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
+    if (right_hand_) right_hand_->SetVelocity(1000, 1000, 1000, 1000, 1000, 1000);
 
     if (!recording_label_.empty()) {
         const std::string dir = repo_constants::DATA_DIR + "/" + recording_label_;
@@ -119,12 +125,12 @@ void InspireRetargeter::retarget_loop(
     while (auto pose = manus_.wait_for_next(stop)) {
         auto& [left, right] = *pose;
 
-        opt<InspirePose> left_target  = retarget(*left,  HandSide::LEFT);
-        opt<InspirePose> right_target = retarget(*right, HandSide::RIGHT);
+        opt<InspirePose> left_target  = left_hand_  ? retarget(*left,  HandSide::LEFT)  : std::nullopt;
+        opt<InspirePose> right_target = right_hand_ ? retarget(*right, HandSide::RIGHT) : std::nullopt;
 
         // SetPosition errors propagate via raise_error wired into SerialPort.
-        left_target && left_hand_.SetPosition(*left_target);
-        right_target && right_hand_.SetPosition(*right_target);
+        if (left_hand_  && left_target)  left_hand_->SetPosition(*left_target);
+        if (right_hand_ && right_target) right_hand_->SetPosition(*right_target);
 
         if (!pause() && hand_csv_) {
             hand_csv_.write_line(

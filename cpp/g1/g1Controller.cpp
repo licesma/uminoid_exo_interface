@@ -8,24 +8,29 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
+#include <iostream>
 #include <sstream>
 
 namespace {
 
 constexpr uint16_t INVALID_EXO_READING = 5000;
 
+/*
 constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> LEFT_ARM_JOINTS = {
     G1JointIndex::LeftShoulderPitch, G1JointIndex::LeftShoulderRoll,
     G1JointIndex::LeftShoulderYaw,   G1JointIndex::LeftElbow,
     G1JointIndex::LeftWristRoll,     G1JointIndex::LeftWristPitch,
     G1JointIndex::LeftWristYaw,
 };
-
+*/
 constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> RIGHT_ARM_JOINTS = {
     G1JointIndex::RightShoulderPitch, G1JointIndex::RightShoulderRoll,
     G1JointIndex::RightShoulderYaw,   G1JointIndex::RightElbow,
     G1JointIndex::RightWristRoll,     G1JointIndex::RightWristPitch,
     G1JointIndex::RightWristYaw,
+};
+
+constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> LEFT_ARM_JOINTS = {
 };
 
 std::string csv_header() {
@@ -149,26 +154,44 @@ void G1Controller::record_arm(const ArmLine& sample, const MotorState& state,
 
 bool G1Controller::initialize_targets_from_robot_state(
     const std::function<bool()>& stop_requested) {
+  std::array<double, G1_NUM_MOTOR> initial_q{};
   while (!stop_requested()) {
-    const std::shared_ptr<const MotorState> ms = motor_state_buffer_.GetData();
-    if (!ms) {
+    const std::shared_ptr<const MotorState> first_motor_state =
+        motor_state_buffer_.GetData();
+    if (!first_motor_state) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
-
-    std::lock_guard<std::mutex> lock(update_mutex_);
     for (int i = 0; i < G1_NUM_MOTOR; ++i) {
-      const double q = ms->q.at(i);
-      commanded_targets_.at(i) = q;
+      initial_q.at(i) = first_motor_state->q.at(i);
     }
-    MotorCommand motor_command_tmp = make_motor_command(commanded_targets_);
-
-    mode_pr_ = Mode::PR;
-    motor_command_buffer_.SetData(motor_command_tmp);
-    return true;
+    break;
   }
+  if (stop_requested()) return false;
 
-  return false;
+  std::array<double, G1_NUM_MOTOR> final_q{};
+  final_q.at(static_cast<int>(G1JointIndex::LeftElbow)) = 1.0;
+
+  const double duration = 3.0;
+  const int num_steps = static_cast<int>(duration / control_dt_);
+  mode_pr_ = Mode::PR;
+  for (int step = 0; step <= num_steps; ++step) {
+    if (stop_requested()) return false;
+    const double ratio = std::clamp(
+        static_cast<double>(step) / static_cast<double>(num_steps), 0.0, 1.0);
+    {
+      std::lock_guard<std::mutex> lock(update_mutex_);
+      for (int i = 0; i < G1_NUM_MOTOR; ++i) {
+        commanded_targets_.at(i) =
+            (1.0 - ratio) * initial_q.at(i) + ratio * final_q.at(i);
+      }
+      MotorCommand motor_command_tmp = make_motor_command(commanded_targets_);
+      motor_command_buffer_.SetData(motor_command_tmp);
+    }
+    std::this_thread::sleep_for(
+        std::chrono::microseconds(static_cast<int>(control_dt_ * 1e6)));
+  }
+  return true;
 }
 
 void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left,

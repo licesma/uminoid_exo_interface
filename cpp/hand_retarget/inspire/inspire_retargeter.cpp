@@ -16,23 +16,34 @@ static const std::string BOUNDS_PATH =
         .lexically_normal()
         .string();
 
+// Column order for one hand, one signal (6 fingers).
+static const char* FINGERS[6] = {
+    "pinky", "ring", "middle", "index", "thumb_bend", "thumb_rotation",
+};
+
 std::string csv_header() {
-    return "collection_id,host_timestamp,"
-           "left_pinky,left_ring,left_middle,left_index,left_thumb_bend,left_thumb_rotation,"
-           "right_pinky,right_ring,right_middle,right_index,right_thumb_bend,right_thumb_rotation";
+    std::string s = "collection_id,host_timestamp";
+    // Signals: commanded target, measured actual angle, measured fingertip force (N).
+    for (const char* side : {"left", "right"})
+        for (const char* signal : {"cmd", "actual", "force"})
+            for (const char* finger : FINGERS)
+                s += std::string(",") + side + "_" + signal + "_" + finger;
+    return s;
 }
 
 std::string format_line(int collection_id,
                         int64_t timestamp,
-                        const opt<InspirePose>& left,
-                        const opt<InspirePose>& right) {
+                        const opt<InspirePose>& left_cmd,
+                        const opt<InspirePose>& right_cmd,
+                        const InspireFeedback& left_fb,
+                        const InspireFeedback& right_fb) {
     std::string s = std::to_string(collection_id) + "," + std::to_string(timestamp);
-    auto append_pose = [&](const opt<InspirePose>& p) {
+    auto append = [&](const opt<InspirePose>& p) {
         for (int i = 0; i < 6; ++i)
             s += p ? ("," + std::to_string((*p)(i))) : ",null";
     };
-    append_pose(left);
-    append_pose(right);
+    append(left_cmd);  append(left_fb.actual);  append(left_fb.force);
+    append(right_cmd); append(right_fb.actual); append(right_fb.force);
     return s;
 }
 
@@ -102,9 +113,12 @@ void InspireRetargeter::retarget_loop(
 
         send(left_target, right_target);
 
+        auto [left_fb, right_fb] = read_feedback();
+
         if (!pause() && hand_csv_) {
             hand_csv_.write_line(
-                format_line(collection_id(), Time::ts(), left_target, right_target));
+                format_line(collection_id(), Time::ts(),
+                            left_target, right_target, left_fb, right_fb));
         }
     }
 

@@ -14,6 +14,16 @@
 
 using InspirePose = Eigen::Matrix<double, 6, 1>;
 
+// Per-hand readback sampled alongside the commanded target.
+//   actual: measured finger positions, same scale as commands ([0, 1]).
+//   force:  per-finger fingertip force in Newtons (RH56 0.5 N resolution).
+// Either may be std::nullopt if the transport can't supply it (e.g. the
+// G1-bridged variant has no force channel).
+struct InspireFeedback {
+    opt<InspirePose> actual;
+    opt<InspirePose> force;
+};
+
 /**
  * Abstract inspire-hand retargeter. Reads Manus glove poses, maps them to
  * per-finger inspire targets, and forwards them to a concrete transport.
@@ -46,6 +56,13 @@ protected:
         const opt<InspirePose>& left_target,
         const opt<InspirePose>& right_target
     ) = 0;
+
+    // Read back measured state (actual angles + fingertip forces) for logging.
+    // Default: no feedback available. Overridden by transports that can poll
+    // the hand directly.
+    virtual std::pair<InspireFeedback, InspireFeedback> read_feedback() {
+        return {{}, {}};
+    }
 
     bool left_enabled_;
     bool right_enabled_;

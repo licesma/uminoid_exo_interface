@@ -43,3 +43,15 @@ void UsbInspireRetargeter::send(
     if (left_hand_  && left_target)  left_hand_->SetPosition(*left_target);
     if (right_hand_ && right_target) right_hand_->SetPosition(*right_target);
 }
+
+std::pair<InspireFeedback, InspireFeedback> UsbInspireRetargeter::read_feedback() {
+    auto poll = [](std::optional<inspire::InspireHand>& hand) {
+        InspireFeedback fb;
+        if (!hand) return fb;
+        InspirePose q, f;
+        if (hand->GetPosition(q) == 0) fb.actual = q;
+        if (hand->GetForce(f)    == 0) fb.force  = f;
+        return fb;
+    };
+    return {poll(left_hand_), poll(right_hand_)};
+}

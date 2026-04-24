@@ -27,6 +27,8 @@ protected:
     void send(const opt<InspirePose>& left_target,
               const opt<InspirePose>& right_target) override;
 
+    std::pair<InspireFeedback, InspireFeedback> read_feedback() override;
+
 private:
     // Delegated-to by the public constructor; lets us resolve port paths first.
     UsbInspireRetargeter(

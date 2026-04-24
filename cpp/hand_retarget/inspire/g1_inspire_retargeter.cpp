@@ -40,6 +40,27 @@ G1InspireRetargeter::G1InspireRetargeter(
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
+std::pair<InspireFeedback, InspireFeedback> G1InspireRetargeter::read_feedback() {
+    // The on-robot inspire_g1 bridge publishes measured finger positions into
+    // MotorStates_.q() and piggybacks fingertip force (Newtons) on
+    // MotorStates_.tau_est(). Matches the USB variant's feedback contract.
+    std::lock_guard<std::mutex> lock(state_mtx_);
+    auto extract = [&](int offset, bool enabled) {
+        InspireFeedback fb;
+        if (!enabled) return fb;
+        InspirePose q, f;
+        for (int i = 0; i < kFingersPerHand; ++i) {
+            q(i) = state_.states()[offset + i].q();
+            f(i) = state_.states()[offset + i].tau_est();
+        }
+        fb.actual = q;
+        fb.force  = f;
+        return fb;
+    };
+    return {extract(kLeftHandOffset,  left_enabled_),
+            extract(kRightHandOffset, right_enabled_)};
+}
+
 void G1InspireRetargeter::send(
     const opt<InspirePose>& left_target,
     const opt<InspirePose>& right_target

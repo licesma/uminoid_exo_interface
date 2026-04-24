@@ -34,6 +34,8 @@ protected:
     void send(const opt<InspirePose>& left_target,
               const opt<InspirePose>& right_target) override;
 
+    std::pair<InspireFeedback, InspireFeedback> read_feedback() override;
+
 private:
     // Finger order per slot: pinky, ring, middle, index, thumb_bend, thumb_rotation.
     static constexpr int kFingersPerHand   = 6;

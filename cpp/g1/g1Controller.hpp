@@ -11,6 +11,7 @@
 #include "upper_body_reader/arm_reader/skeleton_arm.hpp"
 #include "upper_body_reader/constants.hpp"
 #include "../utils/bounds_loader.hpp"
+#include "amo_bridge.hpp"
 #include "g1Robot.hpp"
 
 #ifndef READER_BOUNDS_PATH
@@ -44,11 +45,27 @@ class G1Controller : public G1Robot {
   JointsReadingMetadata metadata_;
   JointBounds bounds_;
   JointBounds reader_bounds_;
+
+  // AMO sidecar plumbing. The bridge is owned unconditionally; G1Controller
+  // is always run with AMO under the g1_upper_body_reader path.
+  AmoBridge amo_bridge_;
+  AmoCommand amo_command_;          // hardcoded standstill until step (f)
+  uint64_t   amo_state_seq_ = 0;    // increments on every publish_amo_state()
+
   ArmReadings decode_arm(const ArmLine& sample, bool from_left) const;
   double toG1Angle(G1JointReading reading);
   void record_arm(const ArmLine& sample, const MotorState& state,
                   const MotorCommand& command, bool from_left,
                   int collection_id);
+
+  // Snapshot motor + IMU state, pack into a state frame, hand to AmoBridge.
+  // Cheap (a few memcpys + one ZMQ send). Safe to call at any rate.
+  void publish_amo_state();
+
+  // Pull the freshest AMO action from AmoBridge, rate-limit-clamp it, and
+  // write into commanded_targets_[0..14]. No-op if no fresh action is
+  // available (legs hold their last commanded pose via LowCommandWriter).
+  void apply_amo_action();
 
  public:
   G1Controller(std::string networkInterface, bool isSimulation,

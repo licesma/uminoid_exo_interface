@@ -222,3 +222,34 @@ void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left,
   if (record) record_arm(sample, *ms, motor_command_tmp, from_left, collection_id);
   motor_command_buffer_.SetData(motor_command_tmp);
 }
+
+void G1Controller::publish_amo_state() {
+  // Snapshot the latest motor + IMU buffers and hand them to the bridge.
+  // No-op until the first DDS state arrival fills both buffers.
+  const std::shared_ptr<const MotorState> motor = motor_state_buffer_.GetData();
+  const std::shared_ptr<const ImuState>   imu   = imu_state_buffer_.GetData();
+  if (!motor || !imu) return;
+
+  amo_bridge_.publish_state(amo_state_seq_++, *motor, *imu, imu->quat,
+                            amo_command_);
+}
+
+void G1Controller::apply_amo_action() {
+  const std::optional<AmoAction> action = amo_bridge_.latest_action();
+  if (!action) return;  // no fresh action; legs hold their last commanded pose
+
+  // AMO fires at 50 Hz, so each tick may slew the target by up to
+  // max_target_velocity_ * 20 ms. Same conservative limit used by the exo path,
+  // just scaled to the AMO control period.
+  constexpr double amo_dt = 0.02;
+  const double max_step = max_target_velocity_ * amo_dt;
+
+  std::lock_guard<std::mutex> lock(update_mutex_);
+  for (size_t i = 0; i < AMO_ACTION.size(); ++i) {
+    const int idx = static_cast<int>(AMO_ACTION[i]);
+    const double desired_target = action->q_target[i];
+    commanded_targets_[idx] += std::clamp(
+        desired_target - commanded_targets_[idx], -max_step, max_step);
+  }
+  motor_command_buffer_.SetData(make_motor_command(commanded_targets_));
+}

@@ -23,8 +23,8 @@ inline constexpr std::array<float, G1_NUM_MOTOR> Kd{
 };
 
 struct ImuState {
-  std::array<float, 3> rpy = {};
-  std::array<float, 3> omega = {};
+  std::array<float, 4> quat = {};              // (w, x, y, z), straight from the IDL
+  std::array<float, 3> angular_velocity = {};
 };
 
 struct MotorCommand {

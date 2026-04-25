@@ -60,8 +60,8 @@ void G1Robot::LowStateHandler(const void *message) {
   motor_state_buffer_.SetData(ms_tmp);
 
   ImuState imu_tmp;
-  imu_tmp.omega = low_state.imu_state().gyroscope();
-  imu_tmp.rpy = low_state.imu_state().rpy();
+  imu_tmp.quat = low_state.imu_state().quaternion();
+  imu_tmp.angular_velocity = low_state.imu_state().gyroscope();
   imu_state_buffer_.SetData(imu_tmp);
 
   memcpy(rx_.buff, &low_state.wireless_remote()[0], 40);

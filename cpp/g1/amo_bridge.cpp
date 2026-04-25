@@ -56,7 +56,7 @@ size_t pack_state_frame(uint8_t* buf,
   for (int i = 0; i < 4; ++i)
     put<double>(buf, off, static_cast<double>(quat_wxyz[i]));
   for (int i = 0; i < 3; ++i)
-    put<double>(buf, off, static_cast<double>(imu_state.omega[i]));
+    put<double>(buf, off, static_cast<double>(imu_state.angular_velocity[i]));
 
   put<double>(buf, off, cmd.vx);
   put<double>(buf, off, cmd.yaw_target);

@@ -4,7 +4,7 @@ Wire format for the C++ <-> Python AMO sidecar bridge.
 Localhost only, fixed-layout little-endian binary. Keep this file in sync with
 the matching C++ struct in cpp/g1/amo_bridge.hpp.
 
-State frame (C++ -> Python), 432 bytes:
+State frame (C++ -> Python), 496 bytes:
   uint64   seq
   uint64   ts_ns                   monotonic ns at publish time
   float64  q[23]                   joint positions, AMO 23-DoF order
@@ -33,7 +33,7 @@ N_LOWER_TARGETS = 15
 _STATE_FMT = "<QQ" + f"{N_JOINTS}d" + f"{N_JOINTS}d" + f"{N_QUAT}d" + f"{N_ANG_VEL}d" + f"{N_CMDS}d"
 _ACTION_FMT = "<QQ" + f"{N_LOWER_TARGETS}d"
 
-STATE_SIZE = struct.calcsize(_STATE_FMT)      # 432
+STATE_SIZE = struct.calcsize(_STATE_FMT)      # 496
 ACTION_SIZE = struct.calcsize(_ACTION_FMT)    # 136
 
 

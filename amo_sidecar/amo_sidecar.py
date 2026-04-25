@@ -4,7 +4,7 @@ AMO sidecar: ZMQ wrapper around HumanoidEnvHeadless.
 Subscribes to robot state frames published by the C++ collect process and
 publishes 15 lower-body+waist PD targets at the AMO control rate (50 Hz).
 
-Wire format: see proto.py. Endpoints are loopback-only.
+Wire format: see wire_protocol.py. Endpoints are loopback-only.
 
 Usage:
     python amo_sidecar.py \
@@ -33,7 +33,7 @@ import numpy as np
 import zmq
 
 from humanoid_env_headless import HumanoidEnvHeadless, AmoCommands
-import proto
+import wire_protocol
 
 
 CONTROL_HZ = 50.0
@@ -138,7 +138,7 @@ def main():
             continue
 
         try:
-            seq, ts_ns, q, dq, quat, ang_vel, cmd_arr = proto.unpack_state(latest_state)
+            seq, ts_ns, q, dq, quat, ang_vel, cmd_arr = wire_protocol.unpack_state(latest_state)
         except Exception as e:
             print(f"[sidecar] bad state frame: {e}", file=sys.stderr)
             continue
@@ -160,7 +160,7 @@ def main():
                             np.asarray(ang_vel), cmds)
 
         out_ts = time.monotonic_ns()
-        action_pub.send(proto.pack_action(seq, out_ts, q_target.tolist()))
+        action_pub.send(wire_protocol.pack_action(seq, out_ts, q_target.tolist()))
         n_publish += 1
 
         if args.verbose and (now - log_t) > 1.0:

@@ -1,0 +1,180 @@
+"""
+AMO sidecar: ZMQ wrapper around HumanoidEnvHeadless.
+
+Subscribes to robot state frames published by the C++ collect process and
+publishes 15 lower-body+waist PD targets at the AMO control rate (50 Hz).
+
+Wire format: see proto.py. Endpoints are loopback-only.
+
+Usage:
+    python amo_sidecar.py \
+        --policy ../third_party/AMO/amo_jit.pt \
+        --adapter ../third_party/AMO/adapter_jit.pt \
+        --norm-stats ../third_party/AMO/adapter_norm_stats.pt \
+        --state-endpoint  tcp://127.0.0.1:5555 \
+        --action-endpoint tcp://127.0.0.1:5556 \
+        --device cpu
+
+Behavior:
+    - SUB socket uses CONFLATE=1: only the most-recent state frame is kept,
+      so the policy always runs on fresh state and never builds backlog.
+    - Until the first state frame arrives, the policy is not invoked.
+    - Loop targets 50 Hz; if a tick overruns, the next tick fires immediately.
+"""
+
+import argparse
+import signal
+import struct
+import sys
+import time
+from pathlib import Path
+
+import numpy as np
+import zmq
+
+from humanoid_env_headless import HumanoidEnvHeadless, AmoCommands
+import proto
+
+
+CONTROL_HZ = 50.0
+CONTROL_DT = 1.0 / CONTROL_HZ
+
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    here = Path(__file__).resolve().parent
+    amo_dir = here.parent / "third_party" / "AMO"
+    p.add_argument("--policy", default=str(amo_dir / "amo_jit.pt"))
+    p.add_argument("--adapter", default=str(amo_dir / "adapter_jit.pt"))
+    p.add_argument("--norm-stats", default=str(amo_dir / "adapter_norm_stats.pt"))
+    p.add_argument("--state-endpoint", default="tcp://127.0.0.1:5555",
+                   help="SUB endpoint where C++ publishes robot state")
+    p.add_argument("--action-endpoint", default="tcp://127.0.0.1:5556",
+                   help="PUB endpoint where we publish lower-body PD targets")
+    p.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
+    p.add_argument("--verbose", action="store_true")
+    return p.parse_args()
+
+
+class _Stop:
+    def __init__(self):
+        self.flag = False
+        signal.signal(signal.SIGINT, self._handle)
+        signal.signal(signal.SIGTERM, self._handle)
+
+    def _handle(self, *_):
+        self.flag = True
+
+
+def main():
+    args = parse_args()
+    stop = _Stop()
+
+    print(f"[sidecar] loading policy device={args.device}")
+    env = HumanoidEnvHeadless(
+        policy_path=args.policy,
+        adapter_path=args.adapter,
+        norm_stats_path=args.norm_stats,
+        device=args.device,
+    )
+
+    ctx = zmq.Context.instance()
+
+    state_sub = ctx.socket(zmq.SUB)
+    state_sub.setsockopt(zmq.SUBSCRIBE, b"")
+    state_sub.setsockopt(zmq.CONFLATE, 1)        # always read newest
+    state_sub.setsockopt(zmq.RCVHWM, 1)
+    state_sub.connect(args.state_endpoint)
+    print(f"[sidecar] state SUB connected to {args.state_endpoint}")
+
+    action_pub = ctx.socket(zmq.PUB)
+    action_pub.setsockopt(zmq.SNDHWM, 1)
+    action_pub.bind(args.action_endpoint)
+    print(f"[sidecar] action PUB bound to {args.action_endpoint}")
+
+    poller = zmq.Poller()
+    poller.register(state_sub, zmq.POLLIN)
+
+    cmds = AmoCommands()
+    last_state_seq = -1
+    n_ticks = 0
+    n_publish = 0
+    next_tick = time.perf_counter()
+    log_t = next_tick
+
+    print("[sidecar] entering control loop @ 50 Hz")
+    while not stop.flag:
+        # Wait until either the next 20 ms tick or a fresh state frame.
+        # Budget: at most CONTROL_DT remaining until next_tick.
+        now = time.perf_counter()
+        wait_ms = max(0.0, (next_tick - now) * 1000.0)
+        # Block briefly so an idle loop doesn't burn CPU.
+        events = dict(poller.poll(timeout=int(wait_ms)))
+
+        latest_state = None
+        if state_sub in events:
+            # Drain (CONFLATE keeps only the newest; this is belt-and-suspenders).
+            while True:
+                try:
+                    latest_state = state_sub.recv(flags=zmq.NOBLOCK)
+                except zmq.Again:
+                    break
+
+        # Only fire a control tick on the cadence boundary.
+        now = time.perf_counter()
+        if now < next_tick:
+            continue
+        next_tick += CONTROL_DT
+        # If we fell behind, snap forward to "now" so we don't spiral.
+        if next_tick < now:
+            next_tick = now + CONTROL_DT
+        n_ticks += 1
+
+        if latest_state is None:
+            # No state yet -> no policy call, no action published. Idle.
+            if args.verbose and (now - log_t) > 1.0:
+                print("[sidecar] waiting for state...")
+                log_t = now
+            continue
+
+        try:
+            seq, ts_ns, q, dq, quat, ang_vel, cmd_arr = proto.unpack_state(latest_state)
+        except Exception as e:
+            print(f"[sidecar] bad state frame: {e}", file=sys.stderr)
+            continue
+
+        if seq == last_state_seq:
+            # No new info; skip policy work.
+            continue
+        last_state_seq = seq
+
+        cmds.vx = float(cmd_arr[0])
+        cmds.yaw = float(cmd_arr[1])
+        cmds.vy = float(cmd_arr[2])
+        cmds.height = float(cmd_arr[3])
+        cmds.torso_yaw = float(cmd_arr[4])
+        cmds.torso_pitch = float(cmd_arr[5])
+        cmds.torso_roll = float(cmd_arr[6])
+
+        q_target = env.step(np.asarray(q), np.asarray(dq), np.asarray(quat),
+                            np.asarray(ang_vel), cmds)
+
+        out_ts = time.monotonic_ns()
+        action_pub.send(proto.pack_action(seq, out_ts, q_target.tolist()))
+        n_publish += 1
+
+        if args.verbose and (now - log_t) > 1.0:
+            print(f"[sidecar] ticks={n_ticks} pubs={n_publish} "
+                  f"last_seq={seq} q_target[knee_L]={q_target[3]:+.3f}")
+            log_t = now
+
+    # Cleanup
+    print(f"\n[sidecar] stopping (ticks={n_ticks}, pubs={n_publish})")
+    state_sub.close(linger=0)
+    action_pub.close(linger=0)
+    ctx.term()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

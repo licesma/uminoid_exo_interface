@@ -10,3 +10,6 @@
 [submodule "third_party/dfx_inspire_service"]
 	path = third_party/dfx_inspire_service
 	url = https://github.com/licesma/dfx_inspire_service
+[submodule "third_party/AMO"]
+	path = third_party/AMO
+	url = git@github.com:OpenTeleVision/AMO.git

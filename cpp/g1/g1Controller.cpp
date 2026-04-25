@@ -1,6 +1,7 @@
 #include "g1Controller.hpp"
 
 #include "g1/model/g1Enums.hpp"
+#include "g1/model/g1Values.hpp"
 #include "utils/circular_math.hpp"
 #include "utils/repo_constants.hpp"
 
@@ -55,8 +56,8 @@ MotorCommand make_motor_command(
     motor_command.tau_ff.at(i) = 0.0;
     motor_command.q_target.at(i) = commanded_targets.at(i);
     motor_command.dq_target.at(i) = 0.0;
-    motor_command.kp.at(i) = Kp[i];
-    motor_command.kd.at(i) = Kd[i];
+    motor_command.kp.at(i) = stiffness[i];
+    motor_command.kd.at(i) = damping[i];
   }
   return motor_command;
 }
@@ -169,8 +170,9 @@ bool G1Controller::initialize_targets_from_robot_state(
   }
   if (stop_requested()) return false;
 
-  std::array<double, G1_NUM_MOTOR> final_q{};
-  final_q.at(static_cast<int>(G1JointIndex::LeftElbow)) = 1.0;
+  // Ramp targets come from g1Values.hpp::initial_pose (legs in AMO's default
+  // crouch so the first policy tick is in-distribution; arms parked).
+  const std::array<double, G1_NUM_MOTOR>& final_q = initial_pose;
 
   const double duration = 3.0;
   const int num_steps = static_cast<int>(duration / control_dt_);

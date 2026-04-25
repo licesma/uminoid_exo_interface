@@ -185,6 +185,8 @@ int main() {
                     ui::add_next(_collection_id.load());
                     _paused.store(true);
                 }
+            } else if (upper_body) {
+                upper_body->handle_key(key);
             }
         }
     }

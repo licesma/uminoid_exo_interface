@@ -71,7 +71,8 @@ G1JointReading invalidReading(G1JointIndex joint) {
 G1Controller::G1Controller(std::string networkInterface, bool isSimulation,
                            const JointsReadingMetadata& metadata,
                            const JointBounds& reader_bounds,
-                           const std::string& recording_label)
+                           const std::string& recording_label,
+                           const std::function<void(const std::string&)>& raise_error)
     : G1Robot(networkInterface, isSimulation),
       control_dt_(0.002),
       max_target_velocity_(2.0),
@@ -84,7 +85,8 @@ G1Controller::G1Controller(std::string networkInterface, bool isSimulation,
       metadata_(metadata),
       bounds_(LoadBounds(G1_BOUNDS_PATH)),
       reader_bounds_(reader_bounds),
-      amo_bridge_([this](const AmoAction& action) { apply_amo_action(action); }) {
+      amo_bridge_([this](const AmoAction& action) { apply_amo_action(action); },
+                  raise_error) {
 }
 
 ArmReadings G1Controller::decode_arm(const ArmLine& sample,

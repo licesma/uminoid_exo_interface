@@ -25,10 +25,18 @@ void send_dontwait(zmq::socket_t& sock, const void* data, size_t size);
 
 // Run a poll/receive loop on `sock` until `running` goes false.
 // `on_msg(data, size)` is invoked for every successfully received frame.
-// Errors are silently swallowed when `running == false` (clean shutdown);
-// otherwise printed to stderr.
+// `on_fatal(reason)` is invoked if any ZMQ error is hit while the loop is
+// still meant to be running; the loop exits after invoking it. Errors that
+// occur after `running` has gone false (shutdown path) are silent.
+//
+// Note: this fail-fast policy is intentional. Silently retrying on a ZMQ
+// error means AMO stops updating leg targets, which is a control-loop
+// hazard. Prefer to shut everything down on any anomaly. If a specific
+// error class shows up frequently in practice and is genuinely benign, that
+// is when we discuss adding a carve-out.
 void run_receive_loop(zmq::socket_t& sock,
-                   const std::atomic<bool>& running,
-                   const std::function<void(const uint8_t*, size_t)>& on_msg);
+                      const std::atomic<bool>& running,
+                      const std::function<void(const uint8_t*, size_t)>& on_msg,
+                      const std::function<void(const std::string&)>& on_fatal);
 
 }  // namespace amo_zmq

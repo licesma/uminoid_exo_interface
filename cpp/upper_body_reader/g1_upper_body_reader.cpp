@@ -16,13 +16,14 @@
   "../upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 #endif
 
-G1UpperBodyReader::G1UpperBodyReader(std::string networkInterface,
-                                         const std::string& relay_address,
-                                         bool isSimulation,
-                                         const std::string& recording_label)
+G1UpperBodyReader::G1UpperBodyReader(
+    std::string networkInterface, const std::string& relay_address,
+    bool isSimulation, const std::string& recording_label,
+    const std::function<void(const std::string&)>& raise_error)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(READER_BOUNDS_PATH),
-                  LoadBounds(READER_BOUNDS_PATH), recording_label),
+                  LoadBounds(READER_BOUNDS_PATH), recording_label,
+                  raise_error),
       left_(std::make_unique<AS5600Arm>(relay_address, 0)),
       right_(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)) {}
 
@@ -33,7 +34,8 @@ G1UpperBodyReader::G1UpperBodyReader(
     const std::function<void(const std::string&)>& raise_error)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(DYNAMIXEL_BOUNDS_PATH),
-                  LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label),
+                  LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label,
+                  raise_error),
       left_(left_device.empty()
                 ? nullptr
                 : std::make_unique<DynamixelArm>(left_device, baudrate,

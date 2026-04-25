@@ -8,7 +8,7 @@
 
 namespace {
 
-// Wire format (must match amo_sidecar/proto.py):
+// Wire format (must match amo_sidecar/wire_protocol.py):
 //   state  : uint64 seq, uint64 ts_ns,
 //            float64 q[23], dq[23], quat[4], ang_vel[3], cmds[7]
 //   action : uint64 seq, uint64 ts_ns, float64 q_target[15]
@@ -84,12 +84,14 @@ AmoAction unpack_action_frame(const uint8_t* buf) {
 
 }  // namespace
 
-AmoBridge::AmoBridge(ActionCallback on_action)
-    : AmoBridge(std::move(on_action), Config{}) {}
+AmoBridge::AmoBridge(ActionCallback on_action, ErrorCallback raise_error)
+    : AmoBridge(std::move(on_action), Config{}, std::move(raise_error)) {}
 
-AmoBridge::AmoBridge(ActionCallback on_action, Config cfg)
+AmoBridge::AmoBridge(ActionCallback on_action, Config cfg,
+                     ErrorCallback raise_error)
     : cfg_(std::move(cfg)),
       on_action_(std::move(on_action)),
+      raise_error_(std::move(raise_error)),
       ctx_(1),
       state_pub_(amo_zmq::make_pub_bound(ctx_, cfg_.state_endpoint)),
       action_sub_(amo_zmq::make_sub_conflate(ctx_, cfg_.action_endpoint)) {
@@ -114,22 +116,41 @@ void AmoBridge::publish_state(uint64_t seq,
   const size_t written =
       pack_state_frame(buf, seq, motor_state, imu_state, quat_wxyz, cmd);
   if (written != STATE_FRAME_SIZE) {
-    std::cerr << "[amo_bridge] BUG: packed " << written
-              << " bytes, expected " << STATE_FRAME_SIZE << "\n";
+    raise_error_("[amo_bridge] BUG: packed " + std::to_string(written) +
+                 " bytes, expected " + std::to_string(STATE_FRAME_SIZE));
     return;
   }
-  amo_zmq::send_dontwait(state_pub_, buf, STATE_FRAME_SIZE);
+  // send_dontwait can throw zmq::error_t. publish_state runs on the DDS
+  // callback thread; we catch here so an exception never unwinds into DDS
+  // dispatch. EAGAIN is consumed silently inside send_dontwait (the whole
+  // point of the dontwait flag is that "queue full" returns nullopt instead
+  // of throwing). Any other exception is fatal.
+  try {
+    amo_zmq::send_dontwait(state_pub_, buf, STATE_FRAME_SIZE);
+  } catch (const zmq::error_t& e) {
+    raise_error_(std::string("[amo_bridge] state send failed: ") + e.what());
+  }
 }
 
 void AmoBridge::receive_loop_() {
   amo_zmq::run_receive_loop(action_sub_, running_,
+      // on_msg: per-frame handler.
       [this](const uint8_t* buf, size_t size) {
         if (size != ACTION_FRAME_SIZE) {
           debug_bad_frame_counts_.fetch_add(1);  // TODO(amo-bridge): remove
+          // Wire-format mismatch is not transient -- two sides disagree on the
+          // protocol. Escalate so collect can shut down rather than silently
+          // running with a dead AMO.
+          raise_error_("[amo_bridge] action frame size " +
+                       std::to_string(size) + " != expected " +
+                       std::to_string(ACTION_FRAME_SIZE) +
+                       " (wire format mismatch with sidecar)");
           return;
         }
         const AmoAction act = unpack_action_frame(buf);
         debug_successful_action_.fetch_add(1);  // TODO(amo-bridge): remove
-        on_action_(act);  // bridge requires a non-null callback at construction
-      });
+        on_action_(act);
+      },
+      // on_fatal: ZMQ-level error that isn't EINTR or shutdown. Escalate.
+      raise_error_);
 }

@@ -5,10 +5,10 @@
 //   state  : C++ PUB (bind)    -> Python SUB (connect)   tcp://127.0.0.1:5555
 //   action : C++ SUB (connect) <- Python PUB (bind)      tcp://127.0.0.1:5556
 //
-// Wire format must match amo_sidecar/proto.py byte-for-byte.
+// Wire format must match amo_sidecar/wire_protocol.py byte-for-byte.
 
-#include "model/g1Enums.hpp"
-#include "model/g1Structs.hpp"
+#include "g1/model/g1Enums.hpp"
+#include "g1/model/g1Structs.hpp"
 
 #include <array>
 #include <atomic>
@@ -70,9 +70,11 @@ class AmoBridge {
   };
 
   using ActionCallback = std::function<void(const AmoAction&)>;
+  // Same shape as collect.cpp's raise_error: fatal-error escalation. Required.
+  using ErrorCallback  = std::function<void(const std::string&)>;
 
-  explicit AmoBridge(ActionCallback on_action);
-  AmoBridge(ActionCallback on_action, Config cfg);
+  AmoBridge(ActionCallback on_action, ErrorCallback raise_error);
+  AmoBridge(ActionCallback on_action, Config cfg, ErrorCallback raise_error);
   ~AmoBridge();
   AmoBridge(const AmoBridge&) = delete;
   AmoBridge& operator=(const AmoBridge&) = delete;
@@ -93,6 +95,7 @@ class AmoBridge {
 
   Config         cfg_;
   ActionCallback on_action_;
+  ErrorCallback  raise_error_;
   zmq::context_t ctx_;
   zmq::socket_t  state_pub_;
   zmq::socket_t  action_sub_;

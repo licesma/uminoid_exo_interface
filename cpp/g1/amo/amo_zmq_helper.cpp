@@ -29,17 +29,27 @@ void send_dontwait(zmq::socket_t& sock, const void* data, size_t size) {
 }
 
 void run_receive_loop(zmq::socket_t& sock,
-                   const std::atomic<bool>& running,
-                   const std::function<void(const uint8_t*, size_t)>& on_msg) {
+                      const std::atomic<bool>& running,
+                      const std::function<void(const uint8_t*, size_t)>& on_msg,
+                      const std::function<void(const std::string&)>& on_fatal) {
+  // Error policy: any ZMQ exception during normal operation is fatal --
+  // AMO not updating commands is a control-loop hazard, so we prefer to
+  // shut down on every anomaly rather than risk silently freezing the
+  // legs mid-motion. Shutdown-time errors (running == false) are silent.
+  auto handle_error = [&](const zmq::error_t& e, const char* phase) {
+    if (running.load()) {
+      on_fatal(std::string("[amo_zmq] ") + phase + " error: " + e.what());
+    }
+  };
+
   while (running.load()) {
     zmq::pollitem_t item[] = {{sock.handle(), 0, ZMQ_POLLIN, 0}};
     try {
       const int rc = zmq::poll(item, 1, std::chrono::milliseconds(50));
       if (rc <= 0) continue;
     } catch (const zmq::error_t& e) {
-      if (!running.load()) return;
-      std::cerr << "[amo_zmq] poll error: " << e.what() << "\n";
-      continue;
+      handle_error(e, "poll");
+      return;
     }
 
     zmq::message_t msg;
@@ -47,9 +57,8 @@ void run_receive_loop(zmq::socket_t& sock,
       auto rc = sock.recv(msg, zmq::recv_flags::none);
       if (!rc) continue;
     } catch (const zmq::error_t& e) {
-      if (!running.load()) return;
-      std::cerr << "[amo_zmq] receive error: " << e.what() << "\n";
-      continue;
+      handle_error(e, "receive");
+      return;
     }
 
     on_msg(static_cast<const uint8_t*>(msg.data()), msg.size());

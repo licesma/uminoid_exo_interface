@@ -12,7 +12,7 @@
 #include "upper_body_reader/arm_reader/skeleton_arm.hpp"
 #include "upper_body_reader/constants.hpp"
 #include "../utils/bounds_loader.hpp"
-#include "amo_bridge.hpp"
+#include "amo/amo_bridge.hpp"
 #include "g1Robot.hpp"
 
 #ifndef READER_BOUNDS_PATH
@@ -74,7 +74,8 @@ class G1Controller : public G1Robot {
   G1Controller(std::string networkInterface, bool isSimulation,
                const JointsReadingMetadata& metadata,
                const JointBounds& reader_bounds,
-               const std::string& recording_label = "");
+               const std::string& recording_label,
+               const std::function<void(const std::string&)>& raise_error);
   ~G1Controller() override = default;
 
   bool initialize_targets_from_robot_state(

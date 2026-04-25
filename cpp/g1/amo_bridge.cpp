@@ -82,19 +82,14 @@ AmoAction unpack_action_frame(const uint8_t* buf) {
   return act;
 }
 
-bool is_stale(const AmoAction& action, int stale_threshold_ms) {
-  const uint64_t age_ns = now_ns() - action.receive_ts_ns;
-  const uint64_t stale_ns =
-      static_cast<uint64_t>(stale_threshold_ms) * 1'000'000ULL;
-  return age_ns > stale_ns;
-}
-
 }  // namespace
 
-AmoBridge::AmoBridge() : AmoBridge(Config{}) {}
+AmoBridge::AmoBridge(ActionCallback on_action)
+    : AmoBridge(std::move(on_action), Config{}) {}
 
-AmoBridge::AmoBridge(Config cfg)
+AmoBridge::AmoBridge(ActionCallback on_action, Config cfg)
     : cfg_(std::move(cfg)),
+      on_action_(std::move(on_action)),
       ctx_(1),
       state_pub_(amo_zmq::make_pub_bound(ctx_, cfg_.state_endpoint)),
       action_sub_(amo_zmq::make_sub_conflate(ctx_, cfg_.action_endpoint)) {
@@ -126,13 +121,6 @@ void AmoBridge::publish_state(uint64_t seq,
   amo_zmq::send_dontwait(state_pub_, buf, STATE_FRAME_SIZE);
 }
 
-std::optional<AmoAction> AmoBridge::latest_action() const {
-  auto act = action_buffer_.GetData();
-  if (!act) return std::nullopt;
-  if (is_stale(*act, cfg_.stale_action_ms)) return std::nullopt;
-  return *act;
-}
-
 void AmoBridge::receive_loop_() {
   amo_zmq::run_receive_loop(action_sub_, running_,
       [this](const uint8_t* buf, size_t size) {
@@ -140,9 +128,8 @@ void AmoBridge::receive_loop_() {
           debug_bad_frame_counts_.fetch_add(1);  // TODO(amo-bridge): remove
           return;
         }
-        AmoAction act = unpack_action_frame(buf);
-        act.receive_ts_ns = now_ns();
-        action_buffer_.SetData(act);
+        const AmoAction act = unpack_action_frame(buf);
         debug_successful_action_.fetch_add(1);  // TODO(amo-bridge): remove
+        on_action_(act);  // bridge requires a non-null callback at construction
       });
 }

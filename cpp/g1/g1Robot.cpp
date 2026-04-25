@@ -75,6 +75,8 @@ void G1Robot::LowStateHandler(const void *message) {
   if (++counter_ % 500 == 0) {
     counter_ = 0;
   }
+  
+  on_state_update();
 }
 
 std::optional<MotorState> G1Robot::getMotorStateSnapshot() const {

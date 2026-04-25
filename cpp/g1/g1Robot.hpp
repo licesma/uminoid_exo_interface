@@ -32,6 +32,9 @@ class G1Robot {
   DataBuffer<MotorCommand> motor_command_buffer_;
   DataBuffer<ImuState> imu_state_buffer_;
 
+  // Hook fired at the end of LowStateHandler
+  virtual void on_state_update() {}
+
  private:
   int counter_;
   Gamepad gamepad_;

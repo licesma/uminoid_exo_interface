@@ -69,6 +69,10 @@ void G1UpperBodyReader::collect_loop(
   right_thread.join();
 }
 
+void G1UpperBodyReader::handle_key(char key) {
+  controller_.handle_key(key);
+}
+
 void G1UpperBodyReader::arm_listener_loop(
     ArmReader& reader, bool from_left,
     const std::function<int()>&  collection_id,

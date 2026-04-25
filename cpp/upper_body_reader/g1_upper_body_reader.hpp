@@ -27,6 +27,8 @@ class G1UpperBodyReader : public UpperBodyReader {
                     const std::function<bool()>& pause = [] { return false; })
       override;
 
+  void handle_key(char key) override;
+
  private:
   void arm_listener_loop(ArmReader& reader, bool from_left,
                          const std::function<int()>&  collection_id,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <mutex>
@@ -46,11 +47,13 @@ class G1Controller : public G1Robot {
   JointBounds bounds_;
   JointBounds reader_bounds_;
 
-  // AMO sidecar plumbing. The bridge is owned unconditionally; G1Controller
-  // is always run with AMO under the g1_upper_body_reader path.
-  AmoBridge amo_bridge_;
-  AmoCommand amo_command_;          // hardcoded standstill until step (f)
-  uint64_t   amo_state_seq_ = 0;    // increments on every publish_amo_state()
+  // AMO sidecar plumbing.
+  AmoBridge  amo_bridge_;
+  AmoCommand amo_command_;         
+  std::mutex amo_command_mutex_;    
+  uint64_t   amo_state_seq_ = 0;    
+  // Stays false until initialize_targets_from_robot_state has finished.
+  std::atomic<bool> amo_ready_{false};
 
   ArmReadings decode_arm(const ArmLine& sample, bool from_left) const;
   double toG1Angle(G1JointReading reading);
@@ -58,14 +61,14 @@ class G1Controller : public G1Robot {
                   const MotorCommand& command, bool from_left,
                   int collection_id);
 
-  // Snapshot motor + IMU state, pack into a state frame, hand to AmoBridge.
-  // Cheap (a few memcpys + one ZMQ send). Safe to call at any rate.
+  // Called from LowStateHandler at ~500 Hz via the on_state_update() override.
   void publish_amo_state();
 
-  // Pull the freshest AMO action from AmoBridge, rate-limit-clamp it, and
-  // write into commanded_targets_[0..14]. No-op if no fresh action is
-  // available (legs hold their last commanded pose via LowCommandWriter).
-  void apply_amo_action();
+  // Called from AmoBridge's receive thread on each successfully unpacked frame.
+  void apply_amo_action(const AmoAction& action);
+
+  // Override of G1Robot::on_state_update -- fires from LowStateHandler.
+  void on_state_update() override;
 
  public:
   G1Controller(std::string networkInterface, bool isSimulation,
@@ -78,4 +81,6 @@ class G1Controller : public G1Robot {
       const std::function<bool()>& stop_requested);
   void process_arm_sample(const ArmLine& sample, bool from_left,
                           int collection_id, bool record);
+
+  void handle_key(char key);
 };

@@ -17,4 +17,7 @@ class UpperBodyReader {
   virtual void collect_loop(const std::function<int()>&  collection_id,
                             const std::function<bool()>& stop,
                             const std::function<bool()>& pause) = 0;
+
+  //Forwards a keyboard character 
+  virtual void handle_key(char /*key*/) {}
 };

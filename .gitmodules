@@ -13,3 +13,6 @@
 [submodule "third_party/AMO"]
 	path = third_party/AMO
 	url = git@github.com:OpenTeleVision/AMO.git
+[submodule "third_party/Humanoid-Exo-Learning"]
+	path = third_party/Humanoid-Exo-Learning
+	url = git@github.com:PointsCoder/Humanoid-Exo-Learning.git

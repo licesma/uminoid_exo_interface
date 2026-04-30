@@ -31,6 +31,14 @@ namespace config {
 
     inline const std::string left_arm   = yaml["upper_body"]["left_device"].as<std::string>();
     inline const std::string right_arm  = yaml["upper_body"]["right_device"].as<std::string>();
+    inline const bool        upper_body_left_enabled  =
+        yaml["upper_body"]["left_enabled"]
+            ? yaml["upper_body"]["left_enabled"].as<bool>()
+            : true;
+    inline const bool        upper_body_right_enabled =
+        yaml["upper_body"]["right_enabled"]
+            ? yaml["upper_body"]["right_enabled"].as<bool>()
+            : true;
     inline const int         baudrate   = yaml["upper_body"]["baudrate"].as<int>();
     inline const std::string network_interface =
         yaml["upper_body"]["network_interface"]
@@ -70,7 +78,7 @@ int main() {
     const std::string recording_label = generate_recording_label();
 
     std::atomic<bool> running{true};
-    std::atomic<bool> _paused{false};
+    std::atomic<bool> _paused{true};
     std::atomic<int>  _collection_id{1};
     std::atomic<bool> error_reported{false};
     std::string       error_msg;
@@ -108,11 +116,16 @@ int main() {
             upper_body = std::make_unique<G1UpperBodyReader>(
                 config::network_interface, config::left_arm, config::right_arm,
                 config::baudrate, config::is_simulation, recording_label,
+                config::upper_body_left_enabled,
+                config::upper_body_right_enabled,
                 raise_error);
         } else {
             upper_body = std::make_unique<ExoUpperBodyReader>(
                 config::left_arm, config::right_arm, config::baudrate,
-                recording_label, raise_error);
+                recording_label,
+                config::upper_body_left_enabled,
+                config::upper_body_right_enabled,
+                raise_error);
         }
     }
     if (config::inspire_enabled) {
@@ -140,7 +153,7 @@ int main() {
     std::cout << "  " << recording_label
               << "   space → next   x → cancel   q → stop\n";
 
-    ui::add_collection(_collection_id.load());
+    ui::add_next(_collection_id.load());
 
     std::thread camera_thread, upper_body_thread, inspire_thread;
     if (camera)     camera_thread     = std::thread([&] { camera->collect_loop(collection_id, stop, paused); });

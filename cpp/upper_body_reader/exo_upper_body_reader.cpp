@@ -7,43 +7,55 @@
 #include "constants.hpp"
 
 #include <iostream>
+#include <stdexcept>
 #include <thread>
+
+namespace {
+std::string arm_csv_path(const std::string& recording_label,
+                         const std::string& filename, bool enabled) {
+  if (!enabled || recording_label.empty()) return "";
+  return repo_constants::DATA_DIR + "/" + recording_label + "/" + filename;
+}
+
+std::unique_ptr<DynamixelArm> make_dynamixel_arm(
+    bool enabled, const std::string& device, int baudrate, const char* side,
+    const std::function<void(const std::string&)>& raise_error) {
+  if (!enabled) return nullptr;
+  if (device.empty()) {
+    const std::string msg = std::string("[ExoUpperBodyReader] ") + side +
+                            " arm is enabled but device path is empty";
+    if (raise_error) raise_error(msg);
+    throw std::invalid_argument(msg);
+  }
+  return std::make_unique<DynamixelArm>(device, baudrate, raise_error);
+}
+}  // namespace
 
 ExoUpperBodyReader::ExoUpperBodyReader(const std::string& relay_address,
                                        const std::string& recording_label,
+                                       bool left_enabled, bool right_enabled,
                                        double default_value)
-    : left(std::make_unique<AS5600Arm>(relay_address, 0),
-           recording_label.empty()
-               ? ""
-               : repo_constants::DATA_DIR + "/" + recording_label +
-                     "/left_arm.csv"),
-      right(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT),
-            recording_label.empty()
-                ? ""
-                : repo_constants::DATA_DIR + "/" + recording_label +
-                      "/right_arm.csv") {}
+    : left(left_enabled
+               ? std::make_unique<AS5600Arm>(relay_address, 0)
+               : nullptr,
+           arm_csv_path(recording_label, "left_arm.csv", left_enabled)),
+      right(right_enabled
+                ? std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)
+                : nullptr,
+            arm_csv_path(recording_label, "right_arm.csv", right_enabled)) {}
 
 ExoUpperBodyReader::ExoUpperBodyReader(
     const std::string& left_device, const std::string& right_device,
     int baudrate, const std::string& recording_label,
+    bool left_enabled, bool right_enabled,
     const std::function<void(const std::string&)>& raise_error)
-    : left(left_device.empty()
-               ? nullptr
-               : std::make_unique<DynamixelArm>(left_device, baudrate,
-                                                raise_error),
-           recording_label.empty()
-               ? ""
-               : repo_constants::DATA_DIR + "/" + recording_label +
-                     "/left_arm.csv",
+    : left(make_dynamixel_arm(left_enabled, left_device, baudrate, "left",
+                              raise_error),
+           arm_csv_path(recording_label, "left_arm.csv", left_enabled),
            raise_error),
-      right(right_device.empty()
-                ? nullptr
-                : std::make_unique<DynamixelArm>(right_device, baudrate,
-                                                 raise_error),
-            recording_label.empty()
-                ? ""
-                : repo_constants::DATA_DIR + "/" + recording_label +
-                      "/right_arm.csv",
+      right(make_dynamixel_arm(right_enabled, right_device, baudrate, "right",
+                               raise_error),
+            arm_csv_path(recording_label, "right_arm.csv", right_enabled),
             raise_error) {}
 
 void ExoUpperBodyReader::PrintRaw() const {

@@ -6,6 +6,21 @@
 #include <stdexcept>
 #include <thread>
 
+namespace {
+std::unique_ptr<DynamixelArm> make_dynamixel_arm(
+    bool enabled, const std::string& device, int baudrate, const char* side,
+    const std::function<void(const std::string&)>& raise_error) {
+  if (!enabled) return nullptr;
+  if (device.empty()) {
+    const std::string msg = std::string("[G1UpperBodyReader] ") + side +
+                            " arm is enabled but device path is empty";
+    if (raise_error) raise_error(msg);
+    throw std::invalid_argument(msg);
+  }
+  return std::make_unique<DynamixelArm>(device, baudrate, raise_error);
+}
+}  // namespace
+
 #ifndef READER_BOUNDS_PATH
 #define READER_BOUNDS_PATH \
   "../upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
@@ -42,24 +57,12 @@ G1UpperBodyReader::G1UpperBodyReader(
                   LoadMetadata(DYNAMIXEL_BOUNDS_PATH),
                   LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label,
                   left_enabled, right_enabled, raise_error),
-      left_(left_enabled
-                ? std::make_unique<DynamixelArm>(left_device, baudrate,
-                                                 raise_error)
-                : nullptr,
+      left_(make_dynamixel_arm(left_enabled, left_device, baudrate, "left",
+                               raise_error),
             "", raise_error),
-      right_(right_enabled
-                 ? std::make_unique<DynamixelArm>(right_device, baudrate,
-                                                  raise_error)
-                 : nullptr,
-             "", raise_error) {
-  if ((left_enabled && left_device.empty()) ||
-      (right_enabled && right_device.empty())) {
-    const std::string msg =
-        "[G1UpperBodyReader] Enabled arm is missing its device path";
-    if (raise_error) raise_error(msg);
-    throw std::invalid_argument(msg);
-  }
-}
+      right_(make_dynamixel_arm(right_enabled, right_device, baudrate, "right",
+                                raise_error),
+             "", raise_error) {}
 
 void G1UpperBodyReader::collect_loop(
     const std::function<int()>&  collection_id,

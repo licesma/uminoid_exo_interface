@@ -35,9 +35,18 @@ int main(int argc, char const *argv[]) {
   const std::string right_device =
       collect_config["upper_body"]["right_device"].as<std::string>();
   const int baudrate = collect_config["upper_body"]["baudrate"].as<int>();
+  const bool left_enabled =
+      collect_config["upper_body"]["left_enabled"]
+          ? collect_config["upper_body"]["left_enabled"].as<bool>()
+          : true;
+  const bool right_enabled =
+      collect_config["upper_body"]["right_enabled"]
+          ? collect_config["upper_body"]["right_enabled"].as<bool>()
+          : true;
 
-  if (left_device.empty() || right_device.empty()) {
-    std::cerr << "teleoperate requires both left and right arm devices"
+  if ((left_enabled && left_device.empty()) ||
+      (right_enabled && right_device.empty())) {
+    std::cerr << "teleoperate requires a device for each enabled arm"
               << std::endl;
     return 1;
   }
@@ -48,8 +57,13 @@ int main(int argc, char const *argv[]) {
   std::signal(SIGINT, on_signal);
   std::signal(SIGTERM, on_signal);
 
+  auto raise_error = [](const std::string& msg) {
+    std::cerr << "[FATAL] " << msg << "\n";
+    g_stop.store(true);
+  };
   G1UpperBodyReader custom(networkInterface, left_device, right_device,
-                           baudrate, isSimulation);
+                           baudrate, isSimulation, /*recording_label=*/"",
+                           left_enabled, right_enabled, raise_error);
   custom.collect_loop([] { return 0; }, [] { return g_stop.load(); });
 
   return 0;

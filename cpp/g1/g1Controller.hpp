@@ -46,6 +46,8 @@ class G1Controller : public G1Robot {
   JointsReadingMetadata metadata_;
   JointBounds bounds_;
   JointBounds reader_bounds_;
+  bool left_enabled_;
+  bool right_enabled_;
 
   // AMO sidecar plumbing.
   AmoBridge  amo_bridge_;
@@ -75,6 +77,7 @@ class G1Controller : public G1Robot {
                const JointsReadingMetadata& metadata,
                const JointBounds& reader_bounds,
                const std::string& recording_label,
+               bool left_enabled, bool right_enabled,
                const std::function<void(const std::string&)>& raise_error);
   ~G1Controller() override = default;
 

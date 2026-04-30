@@ -19,36 +19,43 @@
 G1UpperBodyReader::G1UpperBodyReader(
     std::string networkInterface, const std::string& relay_address,
     bool isSimulation, const std::string& recording_label,
+    bool left_enabled, bool right_enabled,
     const std::function<void(const std::string&)>& raise_error)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(READER_BOUNDS_PATH),
                   LoadBounds(READER_BOUNDS_PATH), recording_label,
-                  raise_error),
-      left_(std::make_unique<AS5600Arm>(relay_address, 0)),
-      right_(std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)) {}
+                  left_enabled, right_enabled, raise_error),
+      left_(left_enabled
+                ? std::make_unique<AS5600Arm>(relay_address, 0)
+                : nullptr),
+      right_(right_enabled
+                 ? std::make_unique<AS5600Arm>(relay_address, ARM_JOINT_COUNT)
+                 : nullptr) {}
 
 G1UpperBodyReader::G1UpperBodyReader(
     std::string networkInterface, const std::string& left_device,
     const std::string& right_device, int baudrate, bool isSimulation,
     const std::string& recording_label,
+    bool left_enabled, bool right_enabled,
     const std::function<void(const std::string&)>& raise_error)
     : controller_(networkInterface, isSimulation,
                   LoadMetadata(DYNAMIXEL_BOUNDS_PATH),
                   LoadBounds(DYNAMIXEL_BOUNDS_PATH), recording_label,
-                  raise_error),
-      left_(left_device.empty()
-                ? nullptr
-                : std::make_unique<DynamixelArm>(left_device, baudrate,
-                                                 raise_error),
+                  left_enabled, right_enabled, raise_error),
+      left_(left_enabled
+                ? std::make_unique<DynamixelArm>(left_device, baudrate,
+                                                 raise_error)
+                : nullptr,
             "", raise_error),
-      right_(right_device.empty()
-                 ? nullptr
-                 : std::make_unique<DynamixelArm>(right_device, baudrate,
-                                                  raise_error),
+      right_(right_enabled
+                 ? std::make_unique<DynamixelArm>(right_device, baudrate,
+                                                  raise_error)
+                 : nullptr,
              "", raise_error) {
-  if (left_device.empty() || right_device.empty()) {
+  if ((left_enabled && left_device.empty()) ||
+      (right_enabled && right_device.empty())) {
     const std::string msg =
-        "[G1UpperBodyReader] Both left and right arm devices are required";
+        "[G1UpperBodyReader] Enabled arm is missing its device path";
     if (raise_error) raise_error(msg);
     throw std::invalid_argument(msg);
   }

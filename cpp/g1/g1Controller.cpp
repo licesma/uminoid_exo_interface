@@ -16,22 +16,18 @@ namespace {
 
 constexpr uint16_t INVALID_EXO_READING = 5000;
 
-/*
+
 constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> LEFT_ARM_JOINTS = {
     G1JointIndex::LeftShoulderPitch, G1JointIndex::LeftShoulderRoll,
     G1JointIndex::LeftShoulderYaw,   G1JointIndex::LeftElbow,
     G1JointIndex::LeftWristRoll,     G1JointIndex::LeftWristPitch,
     G1JointIndex::LeftWristYaw,
 };
-*/
 constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> RIGHT_ARM_JOINTS = {
     G1JointIndex::RightShoulderPitch, G1JointIndex::RightShoulderRoll,
     G1JointIndex::RightShoulderYaw,   G1JointIndex::RightElbow,
     G1JointIndex::RightWristRoll,     G1JointIndex::RightWristPitch,
     G1JointIndex::RightWristYaw,
-};
-
-constexpr std::array<G1JointIndex, ARM_JOINT_COUNT> LEFT_ARM_JOINTS = {
 };
 
 std::string csv_header() {
@@ -72,19 +68,21 @@ G1Controller::G1Controller(std::string networkInterface, bool isSimulation,
                            const JointsReadingMetadata& metadata,
                            const JointBounds& reader_bounds,
                            const std::string& recording_label,
+                           bool left_enabled, bool right_enabled,
                            const std::function<void(const std::string&)>& raise_error)
     : G1Robot(networkInterface, isSimulation),
       control_dt_(0.002),
       max_target_velocity_(2.0),
       commanded_targets_{},
-      left_measured_csv_(make_csv_saver(recording_label, "left_measured.csv")),
-      right_measured_csv_(
-          make_csv_saver(recording_label, "right_measured.csv")),
-      left_command_csv_(make_csv_saver(recording_label, "left_command.csv")),
-      right_command_csv_(make_csv_saver(recording_label, "right_command.csv")),
+      left_measured_csv_(left_enabled ? make_csv_saver(recording_label, "left_measured.csv") : CsvSaver{}),
+      right_measured_csv_(right_enabled ? make_csv_saver(recording_label, "right_measured.csv") : CsvSaver{}),
+      left_command_csv_(left_enabled ? make_csv_saver(recording_label, "left_command.csv") : CsvSaver{}),
+      right_command_csv_(right_enabled ? make_csv_saver(recording_label, "right_command.csv") : CsvSaver{}),
       metadata_(metadata),
       bounds_(LoadBounds(G1_BOUNDS_PATH)),
       reader_bounds_(reader_bounds),
+      left_enabled_(left_enabled),
+      right_enabled_(right_enabled),
       amo_bridge_([this](const AmoAction& action) { apply_amo_action(action); },
                   raise_error) {
 }
@@ -174,8 +172,12 @@ bool G1Controller::initialize_targets_from_robot_state(
   if (stop_requested()) return false;
 
   // Ramp targets come from g1Values.hpp::initial_pose (legs in AMO's default
-  // crouch so the first policy tick is in-distribution; arms parked).
-  const std::array<double, G1_NUM_MOTOR>& final_q = initial_pose;
+  // crouch so the first policy tick is in-distribution; arms parked). Any
+  // disabled arm has its elbow biased to DISABLED_ARM_ELBOW_Q so the limb
+  // doesn't dangle at q=0 with no operator driving it.
+  std::array<double, G1_NUM_MOTOR> final_q = initial_pose;
+  if (!left_enabled_)  final_q[LeftElbow]  = DISABLED_ARM_ELBOW_Q;
+  if (!right_enabled_) final_q[RightElbow] = DISABLED_ARM_ELBOW_Q;
 
   const double duration = 3.0;
   const int num_steps = static_cast<int>(duration / control_dt_);
@@ -203,6 +205,7 @@ bool G1Controller::initialize_targets_from_robot_state(
 
 void G1Controller::process_arm_sample(const ArmLine& sample, bool from_left,
                                       int collection_id, bool record) {
+  if (from_left ? !left_enabled_ : !right_enabled_) return;
   const std::shared_ptr<const MotorState> ms = motor_state_buffer_.GetData();
   if (!ms) return;
 

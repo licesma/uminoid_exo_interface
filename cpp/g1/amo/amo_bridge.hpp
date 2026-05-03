@@ -5,7 +5,7 @@
 //   state  : C++ PUB (bind)    -> Python SUB (connect)   tcp://127.0.0.1:5555
 //   action : C++ SUB (connect) <- Python PUB (bind)      tcp://127.0.0.1:5556
 //
-// Wire format must match amo_sidecar/wire_protocol.py byte-for-byte.
+// Wire format must match py/amo_sidecar/wire_protocol.py byte-for-byte.
 
 #include "g1/model/g1Enums.hpp"
 #include "g1/model/g1Structs.hpp"
@@ -19,10 +19,7 @@
 
 #include <zmq.hpp>
 
-// AMO 23-DoF *observation* order (from play_amo.py dof_names) -> G1JointIndex.
-// Used when packing the state frame the sidecar consumes. AMO has no wrists,
-// so the 8 arm slots (15..22) skip directly from elbow to shoulder of the
-// other side.
+// AMO 23-DoF *observation* order.
 inline constexpr std::array<G1JointIndex, 23> AMO_OBSERVATION = {
     LeftHipPitch,    LeftHipRoll,    LeftHipYaw,    LeftKnee,
     LeftAnklePitch,  LeftAnkleRoll,
@@ -33,8 +30,7 @@ inline constexpr std::array<G1JointIndex, 23> AMO_OBSERVATION = {
     RightShoulderPitch, RightShoulderRoll, RightShoulderYaw, RightElbow,
 };
 
-// AMO 15-DoF *action* order -> G1JointIndex. These are the only joints AMO
-// commands; arms are owned by the exo-driven path in g1Controller.
+// AMO 15-DoF *action* order -> G1JointIndex
 inline constexpr std::array<G1JointIndex, 15> AMO_ACTION = {
     LeftHipPitch,    LeftHipRoll,    LeftHipYaw,    LeftKnee,
     LeftAnklePitch,  LeftAnkleRoll,
@@ -65,12 +61,11 @@ struct AmoAction {
 class AmoBridge {
  public:
   struct Config {
-    std::string state_endpoint  = "tcp://127.0.0.1:5555"; // PUB binds here
-    std::string action_endpoint = "tcp://127.0.0.1:5556"; // SUB connects here
+    std::string state_endpoint  = "tcp://127.0.0.1:5555"; 
+    std::string action_endpoint = "tcp://127.0.0.1:5556"; 
   };
 
   using ActionCallback = std::function<void(const AmoAction&)>;
-  // Same shape as collect.cpp's raise_error: fatal-error escalation. Required.
   using ErrorCallback  = std::function<void(const std::string&)>;
 
   AmoBridge(ActionCallback on_action, ErrorCallback raise_error);

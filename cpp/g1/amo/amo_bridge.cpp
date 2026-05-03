@@ -8,7 +8,7 @@
 
 namespace {
 
-// Wire format (must match amo_sidecar/wire_protocol.py):
+// Wire format (must match py/amo_sidecar/wire_protocol.py):
 //   state  : uint64 seq, uint64 ts_ns,
 //            float64 q[23], dq[23], quat[4], ang_vel[3], cmds[7]
 //   action : uint64 seq, uint64 ts_ns, float64 q_target[15]
@@ -120,11 +120,7 @@ void AmoBridge::publish_state(uint64_t seq,
                  " bytes, expected " + std::to_string(STATE_FRAME_SIZE));
     return;
   }
-  // send_dontwait can throw zmq::error_t. publish_state runs on the DDS
-  // callback thread; we catch here so an exception never unwinds into DDS
-  // dispatch. EAGAIN is consumed silently inside send_dontwait (the whole
-  // point of the dontwait flag is that "queue full" returns nullopt instead
-  // of throwing). Any other exception is fatal.
+  
   try {
     amo_zmq::send_dontwait(state_pub_, buf, STATE_FRAME_SIZE);
   } catch (const zmq::error_t& e) {

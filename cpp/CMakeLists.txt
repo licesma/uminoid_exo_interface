@@ -132,7 +132,7 @@ target_compile_definitions(teleoperate PRIVATE
 
 file(GLOB TEST_SOURCES test/*.cpp)
 # DDS-based tests that link against unitree_sdk2 instead of the default test deps
-set(DDS_TESTS inspire_g1_test retarget_test camera_test inspire_force_test)
+set(DDS_TESTS inspire_g1_test retarget_test camera_test inspire_force_test dex3_test)
 foreach(test_source ${TEST_SOURCES})
   get_filename_component(test_name ${test_source} NAME_WE)
   if(${test_name} IN_LIST DDS_TESTS)
@@ -164,6 +164,10 @@ target_include_directories(collect_cli_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # DDS-based inspire hand test (communicates via G1 DDS topics)
 add_executable(inspire_g1_test test/inspire_g1_test.cpp)
 target_link_libraries(inspire_g1_test PRIVATE unitree_sdk2)
+
+# DDS-based dex3 hand test (subscribes to hand state, drives thumb_0 only)
+add_executable(dex3_test test/dex3_test.cpp)
+target_link_libraries(dex3_test PRIVATE unitree_sdk2 manus_reader yaml-cpp pthread)
 
 # Live fingertip-force readout (USB or G1 DDS, selected via yaml config)
 add_executable(inspire_force_test test/inspire_force_test.cpp)

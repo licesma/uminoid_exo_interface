@@ -37,7 +37,7 @@ usb-FTDI_USB__-__Serial_Converter_FT94EJO0-if00-port0 -> ../../ttyUSB0
 The serial is the part between the last `_` and `-if00` — e.g. `FT94EJO0`. Then register it:
 
 ```bash
-sudo $(which python) setup_arm_udev.py left_arm <serial>
+sudo $(which python) py/setup_arm_udev.py left_arm <serial>
 ```
 
 Repeat for the right arm. Verify both:
@@ -57,9 +57,9 @@ lrwxrwxrwx 1 root root 7 ... /dev/right_arm -> ttyUSB*
 Run once per hand. Plug in **one hand at a time**. The left hand keeps the factory default (ID=1); flash the right hand to ID=2.
 
 ```bash
-python get_inspire_id.py ttyUSB0   # check current ID before flashing
-python set_inspire_id.py ttyUSB0 --new-id 2
-python get_inspire_id.py ttyUSB0   # verify
+python py/get_inspire_id.py ttyUSB0   # check current ID before flashing
+python py/set_inspire_id.py ttyUSB0 --new-id 2
+python py/get_inspire_id.py ttyUSB0   # verify
 ```
 
 ## Usage

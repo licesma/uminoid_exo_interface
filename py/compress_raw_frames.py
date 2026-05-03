@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import struct
+import subprocess
 import sys
 import zlib
 from pathlib import Path
@@ -10,6 +12,7 @@ from pathlib import Path
 
 DEFAULT_WIDTH = 640
 DEFAULT_HEIGHT = 480
+MP4_FPS = 30
 CHANNELS = 3  # RGB8
 
 
@@ -86,7 +89,34 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Overwrite existing PNG files.",
     )
+    parser.add_argument(
+        "--include-mp4",
+        action="store_true",
+        help="Also combine PNG frames into an mp4 written to the parent of frames_dir.",
+    )
     return parser.parse_args()
+
+
+def build_mp4(png_dir: Path, mp4_path: Path, overwrite: bool) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        raise RuntimeError("ffmpeg not found in PATH; install it to use --include-mp4")
+
+    if mp4_path.exists() and not overwrite:
+        raise FileExistsError(f"{mp4_path} already exists (use --overwrite to replace it)")
+
+    cmd = [
+        ffmpeg,
+        "-y" if overwrite else "-n",
+        "-framerate", str(MP4_FPS),
+        "-pattern_type", "glob",
+        "-i", str(png_dir / "*.png"),
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+        str(mp4_path),
+    ]
+    subprocess.run(cmd, check=True)
 
 
 def main() -> int:
@@ -116,6 +146,16 @@ def main() -> int:
             return 1
 
     print(f"Converted {converted} frame(s) to {output_dir}")
+
+    if args.include_mp4:
+        mp4_path = frames_dir.parent / f"{frames_dir.name}.mp4"
+        try:
+            build_mp4(output_dir, mp4_path, args.overwrite)
+        except (subprocess.CalledProcessError, RuntimeError, FileExistsError) as exc:
+            print(f"error: failed to build mp4: {exc}", file=sys.stderr)
+            return 1
+        print(f"Wrote {mp4_path}")
+
     return 0
 
 

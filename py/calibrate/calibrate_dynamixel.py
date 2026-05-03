@@ -7,6 +7,9 @@ import sys
 import termios
 import time
 import tty
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import yaml
 from InquirerPy import inquirer
@@ -17,8 +20,9 @@ from read_dynamixel import BAUDRATE, DXL_IDS, UNAVAILABLE_VALUE, DynamixelPortRe
 from utils.convert_to_radian import convert_to_radian
 
 
-ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
-JOINT_BOUNDS_FILE = "./cpp/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ROBOT_BOUNDS_FILE = REPO_ROOT / "cpp/g1/model/upperBodyJointBounds.yaml"
+JOINT_BOUNDS_FILE = REPO_ROOT / "cpp/upper_body_reader/arm_reader/dynamixel/dynamixel_bounds.yaml"
 
 
 def load_yaml(path):

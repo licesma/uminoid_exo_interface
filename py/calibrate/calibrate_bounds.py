@@ -4,6 +4,9 @@ import time
 import tty
 import termios
 import select
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import yaml
 from InquirerPy import inquirer
@@ -14,8 +17,9 @@ from utils.convert_to_radian import convert_to_radian
 from joint_reader_constants import ENCODER_PRECISION_RAD
 
 
-ROBOT_BOUNDS_FILE = "./cpp/g1/model/upperBodyJointBounds.yaml"
-JOINT_BOUNDS_FILE = "./cpp/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ROBOT_BOUNDS_FILE = REPO_ROOT / "cpp/g1/model/upperBodyJointBounds.yaml"
+JOINT_BOUNDS_FILE = REPO_ROOT / "cpp/upper_body_reader/arm_reader/as5600/as5600_bounds.yaml"
 
 
 def load_yaml(path):
